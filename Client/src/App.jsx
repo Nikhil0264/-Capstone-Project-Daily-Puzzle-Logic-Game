@@ -1,35 +1,48 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+// import { Route, Routes } from "react-router-dom";
+// // import { generateDailyLogic } from "./core/gameLogic";
+// import Login from "./pages/Login";
+// import Dashboard from "./pages/Dashboard";
+// import Game from "./pages/Game";
+// import Profile from "./pages/Profile";
 
-function App() {
-  const [count, setCount] = useState(0)
+
+// function App() {
+//   // const seed = generateDailyLogic();
+
+//   return (
+//     // <div className="bg-black text-white min-h-screen flex items-center justify-center">
+//     //   Seed: {seed}
+//     // </div>
+//     //All the routes sre define here//
+//     <Routes>
+//       <Route path='/' element={<Login />} />
+//       <Route path='/dashboard' element={<Dashboard />} />
+//       <Route path='/game' element={<Game />} />
+//       <Route path='/profile' element={<Profile />} />
+//     </Routes>
+//   );
+// }
+
+// export default App;
+
+
+import React, { useEffect } from "react";
+import { useDispatch } from "react-redux";
+import {  loadPuzzle } from "./features/puzzle/puzzleSlice";
+import PuzzleBoard from "./components/PuzzleBoard";
+
+export default function App() {
+  const dispatch = useDispatch();
+
+  useEffect(() => {
+  console.log("Dispatching loadPuzzle...");
+  dispatch(loadPuzzle("easy"));
+}, [dispatch]);
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <div className="min-h-screen bg-gray-100 flex flex-col items-center">
+      <h1 className="text-3xl font-bold mt-6">🧠 Logic Looper</h1>
+      <PuzzleBoard />
+    </div>
+  );
 }
-
-export default App
