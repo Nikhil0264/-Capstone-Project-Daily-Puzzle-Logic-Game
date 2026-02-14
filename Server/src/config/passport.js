@@ -44,4 +44,9 @@ passport.use(
   )
 );
 
+//trueccaller login has to be implemented in the future, but for now we will only use google login
+export const truecallerLogin = (req, res) => {
+  res.status(501).json({ error: "Truecaller login not implemented yet" });
+};
+
 export default passport;
