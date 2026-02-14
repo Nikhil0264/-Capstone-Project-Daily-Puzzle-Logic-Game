@@ -1,20 +1,8 @@
-import jwt from "jsonwebtoken";
-import { JWT_SECRET } from "../config/env.js";
+import express from "express";
+import { login } from "../controllers/authController.js";
 
-export const verifyToken = (req, res, next) => {
-  const authHeader = req.headers.authorization;
+const router = express.Router();
 
-  if (!authHeader) {
-    return res.status(401).json({ error: "No token provided" });
-  }
+router.post("/login", login);
 
-  const token = authHeader.split(" ")[1];
-
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch (error) {
-    return res.status(403).json({ error: "Invalid token" });
-  }
-};
+export default router;
