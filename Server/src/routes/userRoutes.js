@@ -1,10 +1,20 @@
-import express from 'express'
-import prisma from '../config/prisma.js'
+import express from 'express';
+import { verifyToken } from '../middleware/authMiddleware.js';
+import {
+  getUserProfile,
+  getUserScoreHistory,
+  getHeatmapData,
+  updateUserProfile
+} from '../controllers/userController.js';
 
-const router = express.Router()
+const router = express.Router();
 
-router.get('/users', async (req, res) => {
-  const users = await prisma.user.findMany()
-  res.json(users)
-})
+router.use(verifyToken); 
+
+router.get('/profile', getUserProfile);
+router.put('/profile', updateUserProfile);
+router.get('/scores', getUserScoreHistory);
+router.get('/heatmap', getHeatmapData);
+router.get('/', getUserProfile); 
+
 export default router;

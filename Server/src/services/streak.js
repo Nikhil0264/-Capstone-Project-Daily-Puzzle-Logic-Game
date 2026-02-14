@@ -1,7 +1,8 @@
 import dayjs from "dayjs";
 
-export const calculateStreak = (lastPlayed) => {
-  const today = dayjs();
+export const calculateStreak = (lastPlayed, currentDate) => {
+  
+  const today = currentDate ? dayjs(currentDate) : dayjs();
   const yesterday = today.subtract(1, "day");
 
   if (!lastPlayed) {
@@ -15,8 +16,8 @@ export const calculateStreak = (lastPlayed) => {
   }
 
   if (last.isSame(yesterday, "day")) {
-    return "increment"; 
+    return "increment";
   }
 
-  return "reset"; 
+  return "reset";
 };

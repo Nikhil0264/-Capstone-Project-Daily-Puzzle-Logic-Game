@@ -1,19 +1,65 @@
 import { generatePuzzle } from "../../core/PuzzleChoice/puzzle";
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { getPuzzle, savePuzzle } from "../../localstorage/indexDB";
-// ✅ Async Thunk (even if sync today, future-safe)
+import { getPuzzleState, savePuzzleState, clearPuzzleState } from "../../localstorage/indexDB";
+import { createSeededRandom } from "../../core/random";
+import dayjs from "dayjs";
+import { generateDailySeed } from "../../core/seed";
+
+
 export const loadPuzzle = createAsyncThunk(
     "puzzle/loadPuzzle",
-    async (difficulty, thunkAPI) => {
+    async (args, thunkAPI) => {
         try {
-            const cached = await getPuzzle();
-            if (cached) return cached;
-            const puzzle = generatePuzzle(difficulty);
-             await savePuzzle(puzzle);
-            return puzzle;
+            const difficulty = typeof args === 'object' ? args.difficulty : (args || "easy");
+            const type = typeof args === 'object' ? args.type : 'binary';
+            const date = (typeof args === 'object' && args.date) ? args.date : dayjs().format("YYYY-MM-DD");
+
+            const today = dayjs().format("YYYY-MM-DD");
+            if (dayjs(date).isAfter(dayjs(today), 'day')) {
+                return thunkAPI.rejectWithValue("Cannot preserve future puzzles");
+            }
+
+            const savedState = await getPuzzleState();
+
+
+            if (savedState && savedState.puzzle) {
+
+                const seedForDate = generateDailySeed(date);
+                if (savedState.puzzle.id.startsWith(seedForDate.toString()) && savedState.puzzle.type === type) {
+                    return savedState;
+                }
+            }
+
+            const puzzle = generatePuzzle(difficulty, type, date);
+
+            const initialStatePayload = {
+                puzzle,
+                grid: puzzle.grid.map(row => [...row]),
+                difficulty,
+                isSolved: false,
+                startTime: Date.now(),
+                elapsedTime: 0,
+                score: 0,
+                hintsUsed: 0,
+                isGameOver: false,
+                date: date
+            };
+
+            await savePuzzleState(initialStatePayload);
+            return initialStatePayload;
+
         } catch (error) {
-            return thunkAPI.rejectWithValue("Failed to generate puzzle",error);
+            return thunkAPI.rejectWithValue("Failed to load puzzle", error);
         }
+    }
+);
+
+
+export const saveProgress = createAsyncThunk(
+    "puzzle/saveProgress",
+    async (_, { getState }) => {
+        const { puzzle } = getState();
+        await savePuzzleState(puzzle);
     }
 );
 
@@ -24,10 +70,12 @@ const initialState = {
     isSolved: false,
     error: null,
     startTime: null,
-    endTime: null,
+    elapsedTime: 0,
     score: 0,
     loading: false,
     cellStatus: [],
+    hintsUsed: 0,
+    isGameOver: false,
 };
 
 const puzzleSlice = createSlice({
@@ -35,38 +83,58 @@ const puzzleSlice = createSlice({
     initialState,
     reducers: {
         updateCell: (state, action) => {
+            if (state.isSolved) return;
             const { row, col, value } = action.payload;
             state.grid[row][col] = value;
+
+            if (state.cellStatus[row] && state.cellStatus[row][col]) {
+                state.cellStatus[row][col] = null;
+            }
         },
 
-        markSolved: (state) => {
-            state.isSolved = true;
-            state.endTime = Date.now();
-
-            const timeTaken =
-                (state.endTime - state.startTime) / 1000;
-
-            state.score = Math.max(
-                0,
-                Math.round(1000 - timeTaken * 10)
-            );
+        updateTimer: (state) => {
+            if (!state.isSolved && !state.isGameOver) {
+                state.elapsedTime += 1;
+            }
         },
 
-        resetPuzzle: (state) => {
-            state.puzzle = null;
-            state.grid = [];
-            state.isSolved = false;
-            state.startTime = null;
-            state.endTime = null;
-            state.score = 0;
-            state.error = null;
+        useHint: (state) => {
+            if (state.isSolved) return;
+            if (state.hintsUsed >= 3) return; 
+            const candidates = [];
+            state.grid.forEach((row, rIndex) => {
+                row.forEach((cell, cIndex) => {
+                    const correctVal = state.puzzle.solution[rIndex][cIndex];
+                    if (cell === "" || Number(cell) !== correctVal) {
+                        candidates.push({ r: rIndex, c: cIndex, val: correctVal });
+                    }
+                });
+            });
+
+            if (candidates.length > 0) {
+                
+                
+                const randomIndex = Math.floor(Math.random() * candidates.length);
+                const hint = candidates[randomIndex];
+
+                state.grid[hint.r][hint.c] = hint.val;
+                state.hintsUsed += 1;
+
+                
+                
+            }
         },
 
         checkSolution: (state) => {
-            let allCorrect = true;
+            if (!state.puzzle) return;
 
-            state.cellStatus = state.grid.map((row, i) =>
+            let allCorrect = true;
+            const newCellStatus = state.grid.map((row, i) =>
                 row.map((cell, j) => {
+                    if (cell === "") {
+                        allCorrect = false;
+                        return null; 
+                    }
                     if (Number(cell) === state.puzzle.solution[i][j]) {
                         return "correct";
                     } else {
@@ -76,20 +144,38 @@ const puzzleSlice = createSlice({
                 })
             );
 
+            state.cellStatus = newCellStatus;
+
             if (allCorrect) {
                 state.isSolved = true;
-                state.endTime = Date.now();
+                state.isGameOver = true;
 
-                const timeTaken =
-                    (state.endTime - state.startTime) / 1000;
+                
+                
+                
+                
+                const baseScore = 1000;
+                const timePenalty = state.elapsedTime;
+                const hintPenalty = state.hintsUsed * 100;
 
-                state.score = Math.max(
-                    0,
-                    Math.round(1000 - timeTaken * 10)
-                );
+                state.score = Math.max(0, baseScore - timePenalty - hintPenalty);
             }
-    },
+        },
 
+        resetPuzzle: (state) => {
+            
+            if (!state.puzzle) return;
+
+            state.grid = state.puzzle.grid.map(row => [...row]);
+            state.cellStatus = state.puzzle.grid.map(row => row.map(() => null));
+            state.isSolved = false;
+            state.isGameOver = false;
+            state.startTime = Date.now();
+            state.elapsedTime = 0;
+            state.score = 0;
+            state.hintsUsed = 0;
+            clearPuzzleState(); 
+        },
     },
 
     extraReducers: (builder) => {
@@ -100,18 +186,23 @@ const puzzleSlice = createSlice({
             })
             .addCase(loadPuzzle.fulfilled, (state, action) => {
                 state.loading = false;
-                state.puzzle = action.payload;
-                state.grid = action.payload.grid.map(row => [...row]);
-                state.cellStatus = action.payload.grid.map(row =>
-                    row.map(() => null)
-                );
-                state.difficulty = action.payload.difficulty;
-                state.isSolved = false;
-                state.startTime = Date.now();
-                state.endTime = null;
-                state.score = 0;
-            })
+                
+                const payload = action.payload;
+                state.puzzle = payload.puzzle;
+                state.grid = payload.grid;
+                state.difficulty = payload.difficulty;
+                state.isSolved = payload.isSolved;
+                state.startTime = payload.startTime || Date.now(); 
+                state.elapsedTime = payload.elapsedTime || 0;
+                state.score = payload.score || 0;
+                state.hintsUsed = payload.hintsUsed || 0;
+                state.isGameOver = payload.isGameOver || false;
 
+                
+                if (!state.cellStatus || state.cellStatus.length === 0) {
+                    state.cellStatus = payload.grid.map(row => row.map(() => null));
+                }
+            })
             .addCase(loadPuzzle.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload;
@@ -121,9 +212,10 @@ const puzzleSlice = createSlice({
 
 export const {
     updateCell,
-    markSolved,
     resetPuzzle,
-     checkSolution,
+    checkSolution,
+    updateTimer,
+    useHint
 } = puzzleSlice.actions;
 
 export default puzzleSlice.reducer;

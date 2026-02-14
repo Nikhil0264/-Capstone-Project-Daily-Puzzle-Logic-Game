@@ -12,6 +12,7 @@
   "dependencies": {
     "@reduxjs/toolkit": "^2.11.2",
     "@tailwindcss/vite": "^4.1.18",
+    "axios": "^1.13.5",
     "crypto-js": "^4.2.0",
     "dayjs": "^1.11.19",
     "idb": "^8.0.3",
