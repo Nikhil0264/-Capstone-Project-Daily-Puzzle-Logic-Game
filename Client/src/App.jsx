@@ -1,107 +1,122 @@
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { loadPuzzle } from "./features/puzzle/puzzleSlice";
-import { loadUserStats, logout, processSyncQueue } from "./features/user/userSlice";
+import { Routes, Route, Navigate, Link, useLocation } from "react-router-dom";
+import dayjs from "dayjs";
 
+import { loadUserStats, logout, processSyncQueue } from "./features/user/userSlice";
+import { loadPuzzle } from "./features/puzzle/puzzleSlice";
+
+import Dashboard from "./pages/Dashboard";
+import Game from "./pages/Game";
+import Profile from "./pages/Profile";
+import Login from "./pages/Login";
+import CalendarView from "./components/CalendarView";
 
 export default function App() {
   const dispatch = useDispatch();
-  
+  const location = useLocation();
+  const { user, token, streak, totalPoints } = useSelector((state) => state.user);
+  const [showCalendar, setShowCalendar] = useState(false);
 
   useEffect(() => {
     dispatch(loadUserStats());
-    
     dispatch(loadPuzzle({ date: dayjs().format("YYYY-MM-DD") }));
 
-    
+    // Attempt to process sync queue when online
     dispatch(processSyncQueue());
-
-    
     const handleOnline = () => dispatch(processSyncQueue());
     window.addEventListener('online', handleOnline);
     return () => window.removeEventListener('online', handleOnline);
   }, [dispatch]);
 
-  const handleTypeChange = (type) => {
-    setPuzzleType(type);
-  };
-
-  const handleDateSelect = (date) => {
-    
-    dispatch(loadPuzzle({ date }));
+  // Handle protected routes
+  const ProtectedRoute = ({ children }) => {
+    if (!token) {
+      return <Navigate to="/login" replace />;
+    }
+    return children;
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col items-center pb-10">
-      {}
-      <div className="w-full bg-white shadow-sm py-4 px-6 flex justify-between items-center max-w-4xl mt-4 rounded-xl mx-4">
-        <h1 className="text-2xl font-bold text-gray-800 tracking-tight flex items-center gap-3">
+    <div className="min-h-screen bg-gray-100 flex flex-col items-center pb-10 font-sans">
+      {/* Global Header */}
+      <div className="w-full bg-white shadow-sm py-4 px-6 flex justify-between items-center max-w-4xl mt-4 rounded-xl mx-4 z-50 relative">
+        <Link to="/dashboard" className="text-2xl font-bold text-gray-800 tracking-tight flex items-center gap-3 no-underline">
           🧠 Logic Looper
-          <button
-            onClick={() => setShowCalendar(true)}
-            className="text-xl p-1 rounded-full hover:bg-gray-200 transition"
-            title="Calendar"
-          >
-            📅
-          </button>
-        </h1>
+        </Link>
 
-        <div className="flex gap-6 items-center">
-          {}
-          <div className="flex gap-4">
-            <div className="flex flex-col items-center">
-              <span className="text-xs text-gray-500 uppercase font-bold">Streak</span>
-              <span className="text-orange-500 font-bold text-xl">🔥 {streak}</span>
+        {token && (
+          <div className="flex gap-4 items-center">
+            <button
+              onClick={() => setShowCalendar(true)}
+              className="text-2xl p-2 rounded-full hover:bg-gray-100 transition"
+              title="Calendar"
+            >
+              📅
+            </button>
+
+            <div className="hidden sm:flex gap-4 border-r border-gray-300 pr-4">
+              <div className="flex flex-col items-center">
+                <span className="text-xs text-gray-500 uppercase font-bold">Streak</span>
+                <span className="text-orange-500 font-bold text-xl">🔥 {streak}</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-xs text-gray-500 uppercase font-bold">Score</span>
+                <span className="text-blue-600 font-bold text-xl">⭐ {totalPoints}</span>
+              </div>
             </div>
-            <div className="flex flex-col items-center">
-              <span className="text-xs text-gray-500 uppercase font-bold">Score</span>
-              <span className="text-blue-600 font-bold text-xl">⭐ {totalPoints}</span>
+
+            <div className="flex items-center gap-3">
+              <Link to="/profile" className="flex items-center gap-2 hover:bg-gray-50 p-1 rounded-lg transition">
+                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-sm">
+                  👤
+                </div>
+                <span className="text-sm font-semibold text-gray-600 hidden md:block">
+                  {user?.name || "User"}
+                </span>
+              </Link>
             </div>
           </div>
-
-          {}
-          {token ? (
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-gray-600 hidden sm:block">
-                {user?.name || "User"}
-              </span>
-              <button
-                onClick={() => dispatch(logout())}
-                className="text-sm text-red-500 hover:text-red-700 font-semibold border border-red-200 px-3 py-1 rounded-md"
-              >
-                Logout
-              </button>
-            </div>
-          ) : (
-            <Link
-              to="/"
-              className="text-sm bg-blue-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-700"
-            >
-              Login to Sync
-            </Link>
-          )}
-        </div>
+        )}
       </div>
 
-      {}
-      <div className="bg-white p-1 rounded-lg shadow-sm mt-6 flex gap-1">
-        <button
-          onClick={() => handleTypeChange('binary')}
-          className={`px-4 py-2 rounded-md font-semibold text-sm transition ${puzzleType === 'binary' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
-        >
-          Binary Grid
-        </button>
-        <button
-          onClick={() => handleTypeChange('sudoku')}
-          className={`px-4 py-2 rounded-md font-semibold text-sm transition ${puzzleType === 'sudoku' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
-        >
-          Mini Sudoku
-        </button>
+      {/* Main Content */}
+      <div className="w-full flex-1 flex flex-col items-center pt-6">
+        <Routes>
+          <Route path="/login" element={!token ? <Login /> : <Navigate to="/dashboard" />} />
+
+          <Route path="/dashboard" element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/game" element={
+            <ProtectedRoute>
+              <Game />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/profile" element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          } />
+
+          {/* Default Redirect */}
+          <Route path="*" element={<Navigate to={token ? "/dashboard" : "/login"} replace />} />
+        </Routes>
       </div>
 
-      <PuzzleBoard />
-
-      <Heatmap />
+      {showCalendar && (
+        <CalendarView
+          onClose={() => setShowCalendar(false)}
+          onSelectDate={(date) => {
+            dispatch(loadPuzzle({ date }));
+            setShowCalendar(false);
+          }}
+        />
+      )}
     </div>
   );
 }

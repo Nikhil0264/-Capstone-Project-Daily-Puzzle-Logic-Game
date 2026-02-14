@@ -27,7 +27,7 @@ if (savedToken) {
 
 export const authAPI = {
     login: async (credentials) => {
-        
+
         const response = await api.post("/auth/login", credentials);
         return response.data;
     },
@@ -38,10 +38,29 @@ export const authAPI = {
 
 export const scoreAPI = {
     submitScore: async (data) => {
-        
+
         const response = await api.post("/score/submit", data);
         return response.data;
     },
+};
+
+export const userAPI = {
+    getProfile: async () => {
+        const response = await api.get("/user/profile");
+        return response.data;
+    },
+    getHistory: async (page = 1) => {
+        const response = await api.get(`/user/scores?page=${page}`);
+        return response.data;
+    },
+    getHeatmap: async () => {
+        const response = await api.get("/user/heatmap");
+        return response.data;
+    },
+    updateProfile: async (data) => {
+        const response = await api.put("/user/profile", data);
+        return response.data;
+    }
 };
 
 export default api;

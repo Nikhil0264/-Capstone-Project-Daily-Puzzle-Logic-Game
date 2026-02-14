@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { getUserStats, saveUserStats, saveDailyScore, addToSyncQueue, getSyncQueue, removeFromSyncQueue } from "../../localstorage/indexDB";
 import dayjs from "dayjs";
-import { authAPI, setAuthToken, scoreAPI } from "../../services/api";
+import { authAPI, setAuthToken, scoreAPI, userAPI } from "../../services/api";
 
 
 
@@ -15,8 +15,8 @@ export const processSyncQueue = createAsyncThunk(
 
     for (const item of queue) {
       try {
-        
-        
+
+
         await scoreAPI.submitScore({
           score: item.score,
           date: item.date,
@@ -27,8 +27,8 @@ export const processSyncQueue = createAsyncThunk(
         console.log(`Synced offline score for ${item.date}`);
       } catch (err) {
         console.error(`Failed to sync item ${item.id}`, err);
-        
-        
+
+
       }
     }
   }
@@ -41,7 +41,7 @@ export const completePuzzle = createAsyncThunk(
     const today = dayjs().format("YYYY-MM-DD");
     const isToday = date === today;
 
-    
+
     let newStreak = user.streak;
     const lastPlayed = user.lastPlayed;
 
@@ -49,7 +49,7 @@ export const completePuzzle = createAsyncThunk(
       if (lastPlayed === dayjs().subtract(1, 'day').format("YYYY-MM-DD")) {
         newStreak += 1;
       } else if (lastPlayed === today) {
-        
+
       } else {
         newStreak = 1;
       }
@@ -68,7 +68,7 @@ export const completePuzzle = createAsyncThunk(
 
     await saveUserStats(newStats);
 
-    
+
     if (user.token) {
       try {
         await scoreAPI.submitScore({
@@ -80,7 +80,7 @@ export const completePuzzle = createAsyncThunk(
         console.log("Score synced to backend");
       } catch (err) {
         console.error("Backend sync failed, saving to queue:", err);
-        
+
         await addToSyncQueue({
           score,
           date,
@@ -90,8 +90,8 @@ export const completePuzzle = createAsyncThunk(
         });
       }
     } else {
-      
-      
+
+
     }
 
     return newStats;
@@ -99,6 +99,61 @@ export const completePuzzle = createAsyncThunk(
 );
 
 
+
+
+export const loadUserStats = createAsyncThunk(
+  "user/loadUserStats",
+  async (_, { rejectWithValue }) => {
+    try {
+      const localStats = await getUserStats();
+      const token = localStorage.getItem("token");
+      if (token) {
+        try {
+          const profile = await userAPI.getProfile();
+          return {
+            ...localStats,
+            ...profile,
+            streak: profile.stats?.currentStreak || localStats?.streak || 0,
+            totalPoints: profile.stats?.totalScore || localStats?.totalPoints || 0,
+            history: localStats?.history || {},
+          };
+        } catch (apiError) {
+          console.error("Failed to fetch from backend", apiError);
+          return localStats || {};
+        }
+      }
+      return localStats || {};
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+export const loginUser = createAsyncThunk(
+  "user/login",
+  async (credentials, { rejectWithValue, dispatch }) => {
+    try {
+      const data = await authAPI.login(credentials);
+      setAuthToken(data.token);
+      localStorage.setItem("token", data.token);
+      dispatch(loadUserStats());
+      return data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.error || "Login failed");
+    }
+  }
+);
+
+const initialState = {
+  user: null,
+  token: localStorage.getItem("token") || null,
+  streak: 0,
+  totalPoints: 0,
+  history: {},
+  lastPlayed: null,
+  loading: false,
+  error: null,
+};
 
 const userSlice = createSlice({
   name: "user",
@@ -127,7 +182,7 @@ const userSlice = createSlice({
         state.user = action.payload.user;
         state.token = action.payload.token;
       })
-      
+
       .addCase(completePuzzle.fulfilled, (state, action) => {
         state.streak = action.payload.streak;
         state.lastPlayed = action.payload.lastPlayed;

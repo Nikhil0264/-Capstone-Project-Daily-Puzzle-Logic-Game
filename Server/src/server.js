@@ -19,7 +19,7 @@ app.use("/api/auth", authLimiter);
 app.use("/api/score/submit", scoreSubmissionLimiter);
 app.use("/api", apiLimiter);
 
-app.use("/api", userRouter); 
+app.use("/api/user", userRouter);
 app.use("/api/leaderboard", leaderBoardRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/score", scoreRoutes);
