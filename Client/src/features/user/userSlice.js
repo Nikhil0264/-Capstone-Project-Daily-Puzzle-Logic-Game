@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { getUserStats, saveUserStats, saveDailyScore, addToSyncQueue, getSyncQueueUnsynced, removeFromSyncQueue, markSyncQueueItemSynced, getAllDailyScores } from "../../localstorage/indexDB";
+import { getUserStats, saveUserStats, saveDailyScore, addToSyncQueue, getSyncQueueUnsynced, removeFromSyncQueue, markSyncQueueItemSynced } from "../../localstorage/indexDB";
 import dayjs from "dayjs";
 import { authAPI, setAuthToken, scoreAPI, userAPI } from "../../services/api";
 
@@ -24,7 +24,7 @@ export const processSyncQueue = createAsyncThunk(
           syncedCount++;
         } catch (err) {
           console.warn(`Failed to sync item ${item.id}:`, err.message);
-          // Don't continue if sync fails
+          // Continue with next item even if one fails
         }
       }
 
@@ -66,11 +66,11 @@ export const completePuzzle = createAsyncThunk(
       totalPoints: (user.totalPoints || 0) + score,
       history: {
         ...user.history,
-        [date]: { 
-          score, 
-          solved: true, 
+        [date]: {
+          score,
+          solved: true,
           timeTaken,
-          timestamp: Date.now() 
+          timestamp: Date.now()
         }
       }
     };
@@ -84,8 +84,8 @@ export const completePuzzle = createAsyncThunk(
       solved: true
     });
 
-    // Try to sync if logged in
-    if (user.token) {
+    // Try to sync if logged in (not guest)
+    if (user.token && !user.isGuest) {
       try {
         await scoreAPI.submitScore({
           score,
@@ -93,6 +93,7 @@ export const completePuzzle = createAsyncThunk(
           timeTaken: timeTaken || 0,
           puzzleId: puzzleId || "daily-" + date
         });
+        console.log("✅ Score synced to backend");
       } catch (err) {
         console.warn("Backend sync failed, queued for later:", err.message);
         await addToSyncQueue({
@@ -113,13 +114,19 @@ export const loadUserStats = createAsyncThunk(
   "user/loadUserStats",
   async (_, { rejectWithValue }) => {
     try {
-      const localStats = await getUserStats();
       const token = localStorage.getItem("token");
-      
+      const localStats = await getUserStats();
+
+      // If we have a token, try to fetch from backend
       if (token) {
         try {
+          // Set token for subsequent requests
+          setAuthToken(token);
+
           const profile = await userAPI.getProfile();
-          // Merge local and remote stats, preferring local if more recent
+          console.log("✅ Loaded profile from backend:", profile);
+
+          // Merge local and remote stats
           return {
             user: profile.user || profile,
             token,
@@ -129,28 +136,30 @@ export const loadUserStats = createAsyncThunk(
             history: localStats?.history || {}
           };
         } catch (apiError) {
-          console.warn("Couldn't fetch from backend, using local stats", apiError.message);
-          return localStats || {
-            user: null,
+          console.warn("Couldn't fetch from backend, using local stats:", apiError.message);
+          // Still return local stats with token
+          return {
+            user: localStats?.user || { name: "User", id: "unknown" },
             token,
-            streak: 0,
-            totalPoints: 0,
-            lastPlayed: null,
-            history: {}
+            streak: localStats?.streak || 0,
+            totalPoints: localStats?.totalPoints || 0,
+            lastPlayed: localStats?.lastPlayed,
+            history: localStats?.history || {}
           };
         }
       }
-      
-      // Guest mode - return local stats
-      return localStats || {
-        user: null,
+
+      // No token - return local stats (could be guest or first time user)
+      return {
+        user: localStats?.user || null,
         token: null,
-        streak: 0,
-        totalPoints: 0,
-        lastPlayed: null,
-        history: {}
+        streak: localStats?.streak || 0,
+        totalPoints: localStats?.totalPoints || 0,
+        lastPlayed: localStats?.lastPlayed,
+        history: localStats?.history || {}
       };
     } catch (error) {
+      console.error("Error loading user stats:", error);
       return rejectWithValue(error.message);
     }
   }
@@ -160,22 +169,30 @@ export const loginUser = createAsyncThunk(
   "user/login",
   async (credentials, { rejectWithValue, dispatch }) => {
     try {
-      const data = await authAPI.login(credentials);
-      if (data.token) {
-        setAuthToken(data.token);
-        localStorage.setItem("token", data.token);
-        
-        // Refresh local stats with backend
-        dispatch(loadUserStats());
-        
+      const response = await authAPI.login(credentials);
+
+      if (response.token && response.user) {
+        setAuthToken(response.token);
+        localStorage.setItem("token", response.token);
+
+        console.log("✅ Login successful:", response.user);
+
+        // Try to sync queue after login
+        setTimeout(() => {
+          dispatch(processSyncQueue());
+        }, 500);
+
         return {
-          user: data.user,
-          token: data.token
+          user: response.user,
+          token: response.token
         };
       }
-      throw new Error("No token received");
+      throw new Error("No token received from backend");
     } catch (error) {
-      return rejectWithValue(error.response?.data?.error || "Login failed");
+      console.error("Login error:", error);
+      return rejectWithValue(
+        error.message || error.response?.data?.error || "Login failed"
+      );
     }
   }
 );
@@ -184,17 +201,20 @@ export const guestLogin = createAsyncThunk(
   "user/guestLogin",
   async (_, { rejectWithValue }) => {
     try {
-      // Guest mode - no backend sync
+      // Guest mode - use local storage
       const guestStats = await getUserStats() || {
-        user: { name: "Guest", id: "guest" },
+        user: { name: "Guest", id: "guest-" + Date.now() },
         token: null,
         streak: 0,
         totalPoints: 0,
         lastPlayed: null,
         history: {}
       };
+
+      console.log("✅ Guest login successful");
       return guestStats;
     } catch (error) {
+      console.error("Guest login error:", error);
       return rejectWithValue("Guest login failed");
     }
   }
@@ -253,8 +273,10 @@ const userSlice = createSlice({
       .addCase(loadUserStats.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
+        // Still mark as ready even if error
+        state.user = state.user || null;
       })
-      
+
       // Login user
       .addCase(loginUser.pending, (state) => {
         state.loading = true;
@@ -271,8 +293,12 @@ const userSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
-      
+
       // Guest login
+      .addCase(guestLogin.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
       .addCase(guestLogin.fulfilled, (state, action) => {
         state.user = action.payload.user || { name: "Guest", id: "guest" };
         state.streak = action.payload.streak || 0;
@@ -282,6 +308,11 @@ const userSlice = createSlice({
         state.isGuest = true;
         state.token = null;
         state.loading = false;
+        state.error = null;
+      })
+      .addCase(guestLogin.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
       })
 
       // Complete puzzle
@@ -296,10 +327,10 @@ const userSlice = createSlice({
       .addCase(completePuzzle.rejected, (state, action) => {
         state.error = action.payload;
       })
-      
+
       // Process sync queue
       .addCase(processSyncQueue.fulfilled, (state, action) => {
-        // Sync complete
+        console.log(`✅ Synced ${action.payload.synced} items`);
       })
       .addCase(processSyncQueue.rejected, (state, action) => {
         console.warn("Sync queue processing failed:", action.payload);

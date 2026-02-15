@@ -8,10 +8,6 @@ const CalendarView = ({ onClose, onSelectDate }) => {
     const startOfMonth = today.startOf('month');
     const endOfMonth = today.endOf('month');
 
-    
-    
-    
-    
 
     const daysInMonth = [];
     for (let i = 1; i <= endOfMonth.date(); i++) {
@@ -57,7 +53,6 @@ const CalendarView = ({ onClose, onSelectDate }) => {
 
                     {daysInMonth.map((date) => {
                         const status = getDayStatus(date);
-                        const isToday = date.isSame(today, 'day');
 
                         let btnClass = "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all ";
                         let disabled = false;

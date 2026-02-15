@@ -26,35 +26,35 @@ const Dashboard = () => {
           Welcome back{user ? `, ${user.name}` : ''}! 👋
         </h1>
         <p className="text-gray-600 text-sm md:text-base">
-          {todaySolved 
-            ? "Great job! You've solved today's puzzle. Come back tomorrow for a new challenge." 
+          {todaySolved
+            ? "Great job! You've solved today's puzzle. Come back tomorrow for a new challenge."
             : "Ready to challenge your brain today?"}
         </p>
       </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 w-full mb-8">
-        <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-4 md:p-6 rounded-xl shadow-sm border-2 border-orange-200 flex flex-col items-center hover:shadow-md transition">
+        <div className="bg-linear-to-br from-orange-50 to-orange-100 p-4 md:p-6 rounded-xl shadow-sm border-2 border-orange-200 flex flex-col items-center hover:shadow-md transition">
           <span className="text-3xl md:text-4xl mb-2">🔥</span>
           <span className="text-2xl md:text-3xl font-bold text-orange-600">{streak}</span>
           <span className="text-xs md:text-sm text-orange-600 uppercase tracking-wide font-semibold">Streak</span>
         </div>
 
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 md:p-6 rounded-xl shadow-sm border-2 border-blue-200 flex flex-col items-center hover:shadow-md transition">
+        <div className="bg-linear-to-br from-blue-50 to-blue-100 p-4 md:p-6 rounded-xl shadow-sm border-2 border-blue-200 flex flex-col items-center hover:shadow-md transition">
           <span className="text-3xl md:text-4xl mb-2">⭐</span>
           <span className="text-2xl md:text-3xl font-bold text-blue-600">{totalPoints}</span>
           <span className="text-xs md:text-sm text-blue-600 uppercase tracking-wide font-semibold">Points</span>
         </div>
 
-        <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 md:p-6 rounded-xl shadow-sm border-2 border-purple-200 flex flex-col items-center hover:shadow-md transition">
+        <div className="bg-linear-to-br from-purple-50 to-purple-100 p-4 md:p-6 rounded-xl shadow-sm border-2 border-purple-200 flex flex-col items-center hover:shadow-md transition">
           <span className="text-3xl md:text-4xl mb-2">🧩</span>
           <span className="text-2xl md:text-3xl font-bold text-purple-600">{solvedCount}</span>
           <span className="text-xs md:text-sm text-purple-600 uppercase tracking-wide font-semibold">Solved</span>
         </div>
 
-        <button 
+        <button
           onClick={() => setShowCalendar(true)}
-          className="bg-gradient-to-br from-green-50 to-green-100 p-4 md:p-6 rounded-xl shadow-sm border-2 border-green-200 flex flex-col items-center hover:shadow-md hover:bg-green-200 transition cursor-pointer"
+          className="bg-linear-to-br from-green-50 to-green-100 p-4 md:p-6 rounded-xl shadow-sm border-2 border-green-200 flex flex-col items-center hover:shadow-md hover:bg-green-200 transition cursor-pointer"
         >
           <span className="text-3xl md:text-4xl mb-2">📅</span>
           <span className="text-xs md:text-sm text-green-700 font-bold uppercase tracking-wide text-center">View Calendar</span>
@@ -62,7 +62,7 @@ const Dashboard = () => {
       </div>
 
       {/* Daily Puzzle CTA */}
-      <div className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl shadow-lg p-6 md:p-8 text-white flex flex-col md:flex-row items-center justify-between mb-8 overflow-hidden relative">
+      <div className="w-full bg-linear-to-r from-blue-600 to-indigo-700 rounded-2xl shadow-lg p-6 md:p-8 text-white flex flex-col md:flex-row items-center justify-between mb-8 overflow-hidden relative">
         <div className="z-10 mb-4 md:mb-0">
           <h2 className="text-2xl md:text-3xl font-bold mb-2">Daily Puzzle</h2>
           <p className="text-blue-100 mb-4 md:mb-6 max-w-md">
@@ -73,11 +73,10 @@ const Dashboard = () => {
 
           <Link
             to="/game"
-            className={`px-6 py-3 rounded-lg font-bold shadow-md transition transform hover:scale-105 inline-block ${
-              todaySolved 
-                ? 'bg-white text-blue-600 hover:bg-blue-50' 
+            className={`px-6 py-3 rounded-lg font-bold shadow-md transition transform hover:scale-105 inline-block ${todaySolved
+                ? 'bg-white text-blue-600 hover:bg-blue-50'
                 : 'bg-yellow-400 text-yellow-900 hover:bg-yellow-300'
-            }`}
+              }`}
           >
             {todaySolved ? "Play Again →" : "Start Puzzle →"}
           </Link>
@@ -107,13 +106,26 @@ const Dashboard = () => {
         />
       )}
 
-      {/* Footer Info */}
+      {/* Footer Info / Guest CTA */}
       {isGuest && (
-        <div className="mt-8 w-full bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
-          <p className="text-sm text-blue-900">
-            💡 <strong>Playing as Guest:</strong> Your progress is stored locally. 
-            <Link to="/login" className="text-blue-600 hover:underline ml-1">Login to sync across devices.</Link>
-          </p>
+        <div className="mt-8 w-full bg-linear-to-r from-blue-50 to-indigo-50 border border-blue-200 p-6 rounded-2xl shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="bg-blue-600 text-white p-3 rounded-full text-xl shadow-md">
+              💡
+            </div>
+            <div>
+              <h3 className="font-bold text-blue-900">Playing as Guest</h3>
+              <p className="text-sm text-blue-800">
+                Your progress is stored locally on this device. Login to sync your streak and points across all your devices.
+              </p>
+            </div>
+          </div>
+          <Link
+            to="/login"
+            className="whitespace-nowrap bg-blue-600 text-white px-6 py-2 rounded-lg font-bold shadow-md hover:bg-blue-700 transition transform hover:scale-105"
+          >
+            Login Now
+          </Link>
         </div>
       )}
     </div>

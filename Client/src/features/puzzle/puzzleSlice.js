@@ -75,6 +75,7 @@ const initialState = {
     cellStatus: [],
     hintsUsed: 0,
     isGameOver: false,
+    date: dayjs().format("YYYY-MM-DD"),
 };
 
 const puzzleSlice = createSlice({
@@ -196,6 +197,7 @@ const puzzleSlice = createSlice({
                 state.score = payload.score || 0;
                 state.hintsUsed = payload.hintsUsed || 0;
                 state.isGameOver = payload.isGameOver || false;
+                state.date = payload.date || dayjs().format("YYYY-MM-DD");
 
                 
                 if (!state.cellStatus || state.cellStatus.length === 0) {
@@ -214,7 +216,7 @@ export const {
     resetPuzzle,
     checkSolution,
     updateTimer,
-    useHint
+    useHint: applyHint
 } = puzzleSlice.actions;
 
 export default puzzleSlice.reducer;

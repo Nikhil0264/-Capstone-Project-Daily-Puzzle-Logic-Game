@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { updateCell, checkSolution, resetPuzzle, updateTimer, useHint, saveProgress } from '../features/puzzle/puzzleSlice';
+import { updateCell, checkSolution, resetPuzzle, updateTimer, applyHint, saveProgress } from '../features/puzzle/puzzleSlice';
 import { completePuzzle } from '../features/user/userSlice';
 import dayjs from 'dayjs';
 
@@ -12,7 +12,7 @@ const PuzzleBoard = () => {
   const hasDispatchedCompletion = useRef(false);
   const completionRef = useRef(null);
 
-  
+
   const displayDate = date ? dayjs(date).format("dddd, MMM D, YYYY") : dayjs().format("dddd, MMM D, YYYY");
 
   // Auto-run timer
@@ -40,7 +40,7 @@ const PuzzleBoard = () => {
   useEffect(() => {
     if (isSolved && !hasDispatchedCompletion.current) {
       hasDispatchedCompletion.current = true;
-      
+
       // Trigger confetti or celebration animation
       if (completionRef.current) {
         completionRef.current.classList.add('animate-bounce');
@@ -88,6 +88,27 @@ const PuzzleBoard = () => {
   };
 
   const handleCheck = () => {
+    if (!grid || grid.length === 0) {
+      alert("Puzzle not loaded yet");
+      return;
+    }
+    
+    // Check if all cells are filled
+    let allFilled = true;
+    grid.forEach((row) => {
+      row.forEach((cell) => {
+        if (cell === "" || cell === null) {
+          allFilled = false;
+        }
+      });
+    });
+
+    if (!allFilled) {
+      alert("Please fill all empty cells before checking!");
+      return;
+    }
+
+    // Dispatch check solution
     dispatch(checkSolution());
   };
 
@@ -98,7 +119,7 @@ const PuzzleBoard = () => {
   };
 
   const handleHint = () => {
-    dispatch(useHint());
+    dispatch(applyHint());
   };
 
   const formatTime = (seconds) => {
@@ -123,11 +144,11 @@ const PuzzleBoard = () => {
       {/* Status Message */}
       <div className="mb-4 text-center w-full">
         {isSolved ? (
-          <div 
+          <div
             ref={completionRef}
             className="bg-green-100 border-2 border-green-400 text-green-700 px-4 py-3 rounded-lg relative overflow-hidden"
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent animate-pulse opacity-50"></div>
+            <div className="absolute inset-0 bg-linear-to-r from-transparent via-white to-transparent animate-pulse opacity-50"></div>
             <strong className="font-bold block">🎉 Puzzle Solved! 🎉</strong>
             <span className="block font-semibold text-lg mt-1">Score: {score} 🌟</span>
           </div>
@@ -225,19 +246,5 @@ const PuzzleBoard = () => {
     </div>
   );
 };
-
-export default PuzzleBoard;
-        </button>
-
-        <button
-          onClick={handleReset}
-          className="flex-1 px-4 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold shadow-sm hover:bg-gray-300 transition-colors"
-        >
-          Reset
-        </button>
-      </div>
-    </div>
-  )
-}
 
 export default PuzzleBoard;
