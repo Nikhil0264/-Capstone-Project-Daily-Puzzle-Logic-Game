@@ -16,20 +16,18 @@ export const loadPuzzle = createAsyncThunk(
 
             const today = dayjs().format("YYYY-MM-DD");
             if (dayjs(date).isAfter(dayjs(today), 'day')) {
-                return thunkAPI.rejectWithValue("Cannot preserve future puzzles");
+                return thunkAPI.rejectWithValue("Cannot load future puzzles");
             }
 
             const savedState = await getPuzzleState();
 
-
-            if (savedState && savedState.puzzle) {
-
-                const seedForDate = generateDailySeed(date);
-                if (savedState.puzzle.id.startsWith(seedForDate.toString()) && savedState.puzzle.type === type) {
-                    return savedState;
-                }
+            // Check if saved state is for the same date and type
+            if (savedState && savedState.puzzle && savedState.date === date && savedState.puzzle.type === type) {
+                // Return saved progress if it's for the same date
+                return savedState;
             }
 
+            // Generate fresh puzzle for the requested date
             const puzzle = generatePuzzle(difficulty, type, date);
 
             const initialStatePayload = {
@@ -49,7 +47,8 @@ export const loadPuzzle = createAsyncThunk(
             return initialStatePayload;
 
         } catch (error) {
-            return thunkAPI.rejectWithValue("Failed to load puzzle", error);
+            console.error("Failed to load puzzle:", error);
+            return thunkAPI.rejectWithValue("Failed to load puzzle");
         }
     }
 );
