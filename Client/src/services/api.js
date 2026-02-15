@@ -111,6 +111,20 @@ export const authAPI = {
         window.location.href = url;
     },
 
+    truecallerLogin: async (credentials) => {
+        try {
+            const response = await api.post("/auth/truecaller/login", credentials);
+            if (response.data.token) {
+                setAuthToken(response.data.token);
+            }
+            return response.data;
+        } catch (error) {
+            const data = error.response?.data;
+            const message = data?.error || data?.message || error.message || "TrueCaller login failed";
+            throw { error: message, response: error.response };
+        }
+    },
+
     register: async (userData) => {
         try {
             const response = await api.post("/auth/register", userData);

@@ -19,6 +19,54 @@ const Login = () => {
     }
   }, [urlError]);
 
+  // Initialize TrueCaller SDK
+  useEffect(() => {
+    if (window.truecaller) {
+      window.truecaller.init({
+        appKey: import.meta.env.VITE_TRUECALLER_APP_KEY || 'test'
+      });
+    }
+  }, []);
+
+  const handleTruecallerLogin = () => {
+    if (window.truecaller && window.truecaller.isUsable) {
+      window.truecaller.getProfile(onTruecallerSuccess, onTruecallerError);
+    } else {
+      alert('TrueCaller is not available on this device');
+    }
+  };
+
+  const onTruecallerSuccess = async (response) => {
+    try {
+      const profile = response.profile;
+      const result = await authAPI.truecallerLogin({
+        phone: profile.phoneNumber,
+        name: profile.firstName || 'User',
+        email: profile.email || `user_${profile.phoneNumber}@truecaller.com`
+      });
+
+      if (result.token) {
+        const loginResult = await dispatch(loginUser({
+          email: result.user.email,
+          name: result.user.name,
+          provider: 'truecaller'
+        }));
+
+        if (loginUser.fulfilled.match(loginResult)) {
+          navigate('/dashboard');
+        }
+      }
+    } catch (error) {
+      console.error('TrueCaller login failed:', error);
+      alert('TrueCaller login failed: ' + (error.error || error.message));
+    }
+  };
+
+  const onTruecallerError = (error) => {
+    console.error('TrueCaller error:', error);
+    alert('TrueCaller authentication failed');
+  };
+
   const handleLogin = async (e) => {
     e.preventDefault();
     const result = await dispatch(loginUser({
@@ -57,6 +105,19 @@ const Login = () => {
             <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
           </svg>
           Continue with Google
+        </button>
+
+        {/* TrueCaller login */}
+        <button
+          type="button"
+          onClick={handleTruecallerLogin}
+          disabled={loading}
+          className="w-full flex items-center justify-center gap-2 bg-white border-2 border-red-400 text-red-700 py-3 rounded-lg font-semibold hover:bg-red-50 hover:border-red-500 transition disabled:opacity-50 mb-4"
+        >
+          <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" aria-hidden>
+            <path fill="#FF0000" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6z"/>
+          </svg>
+          Login with TrueCaller
         </button>
 
         <div className="flex items-center gap-3 mb-4">

@@ -1,11 +1,14 @@
 import express from "express";
-import { login } from "../controllers/authController.js";
+import { login, truecallerLogin } from "../controllers/authController.js";
 import passport from "../config/passport.js";
 import { CLIENT_URL, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET } from "../config/env.js";
 
 const router = express.Router();
 
 router.post("/login", login);
+
+// TrueCaller login endpoint
+router.post("/truecaller/login", truecallerLogin);
 
 // Ensure Google OAuth is configured before starting the flow
 router.get("/google", (req, res, next) => {
