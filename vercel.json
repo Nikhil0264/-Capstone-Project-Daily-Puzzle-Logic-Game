@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "buildCommand": "cd Client && npm install && npm run build",
+  "outputDirectory": "Client/dist",
+  "env": {
+    "VITE_API_URL": "@vite-api-url"
+  }
+}
