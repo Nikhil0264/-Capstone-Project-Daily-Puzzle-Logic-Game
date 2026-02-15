@@ -3,16 +3,14 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig(({ command, mode }) => {
-  const env = loadEnv(mode, process.cwd(), '')
-  
   return {
     plugins: [react(), tailwindcss()],
     server: {
       proxy: {
         '/api': {
-          target: env.VITE_BACKEND_URL || 'http://localhost:5000',
+          target: 'https://capstone-project-daily-puzzle-logic-sand.vercel.app',
           changeOrigin: true,
-          secure: false,
+          secure: true,
         },
       },
     },

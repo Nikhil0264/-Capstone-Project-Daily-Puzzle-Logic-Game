@@ -63,15 +63,23 @@ export const truecallerLogin = async (req, res) => {
   try {
     const { phone, name, email } = req.body;
 
+    // Validate required fields
     if (!phone) {
       return res.status(400).json({ error: "Phone number is required" });
     }
 
-    // Normalize phone number (remove spaces, dashes, etc.)
-    const phoneTrimmed = String(phone).replace(/\D/g, "");
-    const emailToUse = (email || `truecaller_${phoneTrimmed}@truecaller.com`).trim().toLowerCase();
+    // Normalize and validate phone number
+    const phoneTrimmed = String(phone).trim();
+    if (phoneTrimmed.length < 10) {
+      return res.status(400).json({ error: "Invalid phone number" });
+    }
+
+    // Create consistent email from phone number
+    const phoneDigitsOnly = phoneTrimmed.replace(/\D/g, "");
+    const emailToUse = (email || `tc_${phoneDigitsOnly}@truecaller.com`).trim().toLowerCase();
     const nameToUse = name ? String(name).trim() : "TrueCaller User";
 
+    // Find or create user
     let user = await prisma.user.findUnique({
       where: { email: emailToUse }
     });
@@ -85,25 +93,29 @@ export const truecallerLogin = async (req, res) => {
         }
       });
 
+      // Create user stats if not exists
       try {
         await prisma.userStats.create({
           data: { userId: user.id }
         });
       } catch (statsErr) {
+        // Ignore unique constraint errors (P2002)
         if (statsErr.code !== "P2002") {
           throw statsErr;
         }
       }
-    } else {
-      // Update user if new information is provided
-      if (nameToUse !== "TrueCaller User" && user.name !== nameToUse) {
-        user = await prisma.user.update({
-          where: { id: user.id },
-          data: { name: nameToUse, provider: "truecaller" }
-        });
-      }
+    } else if (nameToUse !== "TrueCaller User") {
+      // Update user info if we have new data
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { 
+          name: nameToUse,
+          provider: "truecaller" 
+        }
+      });
     }
 
+    // Generate JWT token
     const token = generateToken(user);
 
     return res.status(200).json({

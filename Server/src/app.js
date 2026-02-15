@@ -12,9 +12,8 @@ const app = express();
 
 // Middleware
 const allowedOrigins = [
-  process.env.CLIENT_URL || "http://localhost:5173",
-  "http://localhost:5173",
-  "http://localhost:5000"
+  process.env.CLIENT_URL || "https://capstone-project-daily-puzzle-logic-sand.vercel.app",
+  "https://capstone-project-daily-puzzle-logic-sand.vercel.app"
 ];
 
 app.use(cors({
@@ -22,9 +21,10 @@ app.use(cors({
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
 
-    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
+    if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
+      console.warn(`CORS blocked origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },

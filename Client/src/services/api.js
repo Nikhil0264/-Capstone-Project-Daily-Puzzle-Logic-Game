@@ -101,13 +101,10 @@ export const authAPI = {
     },
 
     googleLogin: () => {
-        // Use full backend URL so OAuth redirect hits the server (avoids proxy issues with full-page nav)
+        // Use production backend URL for OAuth callback
         const backendBase =
-            import.meta.env.VITE_BACKEND_URL ||
-            (import.meta.env.DEV ? "http://localhost:5000" : "");
-        const url = backendBase
-            ? `${backendBase.replace(/\/$/, "")}/api/auth/google`
-            : "/api/auth/google";
+            import.meta.env.VITE_BACKEND_URL || "https://capstone-project-daily-puzzle-logic-sand.vercel.app";
+        const url = `${backendBase.replace(/\/$/, "")}/api/auth/google`;
         window.location.href = url;
     },
 

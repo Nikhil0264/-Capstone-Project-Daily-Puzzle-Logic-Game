@@ -23,29 +23,69 @@ const Login = () => {
   useEffect(() => {
     if (window.truecaller) {
       window.truecaller.init({
-        appKey: import.meta.env.VITE_TRUECALLER_APP_KEY || 'test'
+        appKey: import.meta.env.VITE_TRUECALLER_APP_KEY,
+        // Frontend URL for the SDK callback
+        appLink: import.meta.env.VITE_TRUECALLER_DOMAIN || 'https://capstone-project-daily-puzzle-logic-sand.vercel.app'
       });
+      console.log('[TrueCaller] SDK initialized with appKey:', import.meta.env.VITE_TRUECALLER_APP_KEY ? 'present' : 'missing');
+    } else {
+      console.warn('[TrueCaller] TrueCaller SDK not loaded');
     }
   }, []);
 
   const handleTruecallerLogin = () => {
-    if (window.truecaller && window.truecaller.isUsable) {
-      window.truecaller.getProfile(onTruecallerSuccess, onTruecallerError);
-    } else {
-      alert('TrueCaller is not available on this device');
+    console.log('[TrueCaller] Login button clicked');
+    
+    if (!window.truecaller) {
+      console.error('[TrueCaller] SDK not loaded');
+      alert('TrueCaller SDK not loaded. Please refresh the page.');
+      return;
+    }
+
+    if (!window.truecaller.isUsable) {
+      console.warn('[TrueCaller] Not usable on this device/browser');
+      alert('TrueCaller is not available on this device. Please use Google login or email instead.');
+      return;
+    }
+
+    console.log('[TrueCaller] Initiating authentication');
+    const options = {
+      countryCode: ['+91', '+1', '+44', '+91'], // Support multiple countries
+      skipInitScreen: false,
+      firstName: true,
+      lastName: false,
+      accessToken: true,
+      requestNonce: Math.random().toString(36).substring(7),
+      successCallback: onTruecallerSuccess,
+      failureCallback: onTruecallerError
+    };
+
+    try {
+      window.truecaller.getProfile(options);
+    } catch (err) {
+      console.error('[TrueCaller] Error calling getProfile:', err);
+      alert('TrueCaller error: ' + err.message);
     }
   };
 
   const onTruecallerSuccess = async (response) => {
     try {
-      const profile = response.profile;
-      const result = await authAPI.truecallerLogin({
-        phone: profile.phoneNumber,
-        name: profile.firstName || 'User',
-        email: profile.email || `user_${profile.phoneNumber}@truecaller.com`
-      });
+      if (!response || !response.profile) {
+        throw new Error('Invalid TrueCaller response');
+      }
 
-      if (result.token) {
+      const profile = response.profile;
+      console.log('[TrueCaller] Profile received:', { phone: profile.phoneNumber, name: profile.firstName });
+      
+      const result = await authAPI.truecallerLogin({
+        phone: profile.phoneNumber || profile.phone,
+        name: profile.firstName || 'TrueCaller User',
+        email: profile.email || `tc_${(profile.phoneNumber || profile.phone || 'user')}@truecaller.com`
+      });
+      
+      console.log('[TrueCaller] Backend response received');
+
+      if (result && result.token) {
         const loginResult = await dispatch(loginUser({
           email: result.user.email,
           name: result.user.name,
@@ -55,16 +95,24 @@ const Login = () => {
         if (loginUser.fulfilled.match(loginResult)) {
           navigate('/dashboard');
         }
+      } else {
+        throw new Error('No token received from server');
       }
     } catch (error) {
-      console.error('TrueCaller login failed:', error);
-      alert('TrueCaller login failed: ' + (error.error || error.message));
+      console.error('[TrueCaller] Login failed:', error);
+      alert('TrueCaller login failed: ' + (error.error || error.message || 'Unknown error'));
     }
   };
 
   const onTruecallerError = (error) => {
-    console.error('TrueCaller error:', error);
-    alert('TrueCaller authentication failed');
+    console.error('[TrueCaller] Authentication error:', error);
+    if (error && error.message) {
+      alert('TrueCaller error: ' + error.message);
+    } else if (typeof error === 'string') {
+      alert('TrueCaller error: ' + error);
+    } else {
+      alert('TrueCaller authentication failed or was cancelled');
+    }
   };
 
   const handleLogin = async (e) => {
@@ -112,12 +160,13 @@ const Login = () => {
           type="button"
           onClick={handleTruecallerLogin}
           disabled={loading}
-          className="w-full flex items-center justify-center gap-2 bg-white border-2 border-red-400 text-red-700 py-3 rounded-lg font-semibold hover:bg-red-50 hover:border-red-500 transition disabled:opacity-50 mb-4"
+          className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-red-500 to-red-600 text-white py-3 rounded-lg font-semibold hover:from-red-600 hover:to-red-700 transition disabled:opacity-50 mb-4 shadow-md"
         >
-          <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" aria-hidden>
-            <path fill="#FF0000" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6z"/>
+          <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+            {/* TrueCaller-style phone icon */}
+            <path d="M17 10.5V7c0 .55.45 1 1 1h.5c.83 0 1.5.67 1.5 1.5v2c0 .55-.45 1-1 1h-.5c-.55 0-1 .45-1 1V17c0 2.21-1.79 4-4 4s-4-1.79-4-4v-6.5H6c-.55 0-1 .45-1 1v.5c0 .83-.67 1.5-1.5 1.5h-2c-.55 0-1-.45-1-1v-.5C.5 9.67 1.17 9 2 9h2V7c0-2.21 1.79-4 4-4s4 1.79 4 4v3.5h1z"/>
           </svg>
-          Login with TrueCaller
+          <span>Login with TrueCaller</span>
         </button>
 
         <div className="flex items-center gap-3 mb-4">

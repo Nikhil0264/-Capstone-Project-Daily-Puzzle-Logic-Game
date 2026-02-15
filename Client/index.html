@@ -7,11 +7,13 @@
     <meta name="theme-color" content="#2563eb" />
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>" />
     <title>Logic Looper - Daily Logic Puzzles</title>
-    <!-- TrueCaller SDK -->
-    <script type="text/javascript" src="https://truecaller.com/javascript/v1/truecaller.js"></script>
+    <!-- TrueCaller SDK - Load asynchronously -->
+    <script async src="https://truecaller.com/javascript/v1/truecaller.js" onload="console.log('[TrueCaller SDK] Loaded successfully'); window.truecallerSDKLoaded = true;" onerror="console.warn('[TrueCaller SDK] Failed to load'); window.truecallerSDKLoaded = false;"></script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
   </body>
 </html>

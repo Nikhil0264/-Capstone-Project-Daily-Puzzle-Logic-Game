@@ -16,18 +16,27 @@ export default function AuthCallback() {
     const token = searchParams.get("token");
     const error = searchParams.get("error");
 
+    console.log("[AuthCallback] Processing OAuth callback", { token: token ? "present" : "missing", error });
+
     if (error) {
+      console.error("[AuthCallback] OAuth error:", error);
       navigate(`/login?error=${encodeURIComponent(error)}`, { replace: true });
       return;
     }
 
     if (!token) {
+      console.error("[AuthCallback] No token in URL");
       navigate("/login?error=Missing+token", { replace: true });
       return;
     }
 
+    console.log("[AuthCallback] Token received, setting auth and loading stats");
     setAuthToken(token);
     dispatch(loadUserStats()).then(() => {
+      console.log("[AuthCallback] User stats loaded, redirecting to dashboard");
+      navigate("/dashboard", { replace: true });
+    }).catch((err) => {
+      console.error("[AuthCallback] Failed to load user stats:", err);
       navigate("/dashboard", { replace: true });
     });
   }, [searchParams, navigate, dispatch]);
