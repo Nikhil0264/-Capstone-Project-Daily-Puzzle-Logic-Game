@@ -233,6 +233,7 @@ export const leaderboardAPI = {
 
 // Health check
 export const healthCheck = async () => {
+    // eslint-disable-next-line no-useless-catch
     try {
         const response = await api.get("/health");
         return response.data;
