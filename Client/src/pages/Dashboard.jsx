@@ -4,17 +4,39 @@ import { Link } from 'react-router-dom';
 import Heatmap from '../components/Heatmap';
 import dayjs from 'dayjs';
 import CalendarView from '../components/CalendarView';
+import { leaderboardAPI } from '../services/api';
 
 const Dashboard = () => {
   const { user, streak, totalPoints, history, isGuest } = useSelector((state) => state.user);
   const [showCalendar, setShowCalendar] = useState(false);
   const [todaySolved, setTodaySolved] = useState(false);
+  const [dailyTop, setDailyTop] = useState([]);
+  const [allTimeTop, setAllTimeTop] = useState([]);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(true);
 
   const today = dayjs().format("YYYY-MM-DD");
 
   useEffect(() => {
     setTodaySolved(history && history[today] && history[today].solved);
   }, [history, today]);
+
+  useEffect(() => {
+    const fetchLeaderboards = async () => {
+      try {
+        const [daily, allTime] = await Promise.all([
+          leaderboardAPI.getDaily(),
+          leaderboardAPI.getAllTime()
+        ]);
+        setDailyTop(Array.isArray(daily) ? daily.slice(0, 100) : []);
+        setAllTimeTop(Array.isArray(allTime) ? allTime.slice(0, 100) : []);
+      } catch (err) {
+        console.warn('Leaderboard fetch failed:', err);
+      } finally {
+        setLeaderboardLoading(false);
+      }
+    };
+    fetchLeaderboards();
+  }, []);
 
   const solvedCount = Object.values(history || {}).filter(h => h.solved).length;
 
@@ -91,6 +113,67 @@ const Dashboard = () => {
             <rect x="20" y="140" width="40" height="40" rx="4" />
           </svg>
         </div>
+      </div>
+
+      {/* Top 100 performers */}
+      <div className="w-full mb-8">
+        <h2 className="text-xl md:text-2xl font-bold text-gray-800 mb-4">🏆 Top performers</h2>
+        {leaderboardLoading ? (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 text-center text-gray-500">
+            Loading leaderboard...
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="bg-white rounded-2xl shadow-sm border-2 border-amber-200 overflow-hidden">
+              <div className="bg-amber-50 px-4 py-2 border-b border-amber-200">
+                <h3 className="font-bold text-amber-800">Today&apos;s top scores</h3>
+              </div>
+              <ul className="divide-y divide-gray-100 max-h-80 overflow-y-auto">
+                {dailyTop.length === 0 ? (
+                  <li className="px-4 py-3 text-gray-500 text-sm">No scores yet today. Be the first!</li>
+                ) : (
+                  dailyTop.slice(0, 20).map((entry, i) => (
+                    <li key={entry.id || i} className="px-4 py-2 flex justify-between items-center">
+                      <span className="font-medium text-gray-800">
+                        #{i + 1} {entry.user?.name || entry.user?.email || 'Anonymous'}
+                      </span>
+                      <span className="text-amber-600 font-bold">{entry.score} pts</span>
+                    </li>
+                  ))
+                )}
+              </ul>
+              {dailyTop.length > 20 && (
+                <div className="px-4 py-2 bg-gray-50 text-xs text-gray-500 border-t">
+                  Showing top 20 of {dailyTop.length} today
+                </div>
+              )}
+            </div>
+            <div className="bg-white rounded-2xl shadow-sm border-2 border-blue-200 overflow-hidden">
+              <div className="bg-blue-50 px-4 py-2 border-b border-blue-200">
+                <h3 className="font-bold text-blue-800">Top 100 all-time</h3>
+              </div>
+              <ul className="divide-y divide-gray-100 max-h-80 overflow-y-auto">
+                {allTimeTop.length === 0 ? (
+                  <li className="px-4 py-3 text-gray-500 text-sm">No players yet.</li>
+                ) : (
+                  allTimeTop.slice(0, 20).map((player, i) => (
+                    <li key={i} className="px-4 py-2 flex justify-between items-center">
+                      <span className="font-medium text-gray-800">
+                        #{i + 1} {player.name || 'Anonymous'}
+                      </span>
+                      <span className="text-blue-600 font-bold">{player.totalPoints ?? 0} pts</span>
+                    </li>
+                  ))
+                )}
+              </ul>
+              {allTimeTop.length > 20 && (
+                <div className="px-4 py-2 bg-gray-50 text-xs text-gray-500 border-t">
+                  Showing top 20 of 100
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Heatmap */}

@@ -2,8 +2,7 @@ import axios from "axios";
 
 // Determine API URL based on environment
 const getApiUrl = () => {
-    // In development, use the relative path /api which is proxied by Vite to localhost:5000
-    // In production, use the environment variable or default to /api
+   
     if (import.meta.env.DEV) {
         return "/api";
     }
@@ -18,11 +17,11 @@ const api = axios.create({
     headers: {
         "Content-Type": "application/json",
     },
-    timeout: 10000, // 10 second timeout
-    withCredentials: true, // Include credentials in requests
+    timeout: 10000, 
+    withCredentials: true, 
 });
 
-// Request interceptor - add auth token to all requests
+
 api.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem("token");
@@ -42,17 +41,17 @@ api.interceptors.response.use(
         return response;
     },
     (error) => {
-        // Handle 401 Unauthorized - token expired or invalid
-        if (error.response?.status === 401) {
+        // Handle 401 Unauthorized - token expired or invalid (skip redirect for login/register requests)
+        const isAuthRequest = error.config?.url?.includes("/auth/login") || error.config?.url?.includes("/auth/register");
+        if (error.response?.status === 401 && !isAuthRequest) {
             localStorage.removeItem("token");
-            window.location.href = "/login"; // Redirect to login
+            window.location.href = "/login";
         }
 
-        // Log error for debugging
         console.error(
             "API Error:",
             error.response?.status,
-            error.response?.data?.message || error.message
+            error.response?.data?.message || error.response?.data?.error || error.message
         );
 
         return Promise.reject(error);
@@ -86,7 +85,9 @@ export const authAPI = {
             }
             return response.data;
         } catch (error) {
-            throw error.response?.data || { error: "Login failed" };
+            const data = error.response?.data;
+            const message = data?.error || data?.message || error.message || "Login failed";
+            throw { error: message, response: error.response };
         }
     },
 
@@ -100,7 +101,14 @@ export const authAPI = {
     },
 
     googleLogin: () => {
-        window.location.href = `${API_URL}/auth/google`;
+        // Use full backend URL so OAuth redirect hits the server (avoids proxy issues with full-page nav)
+        const backendBase =
+            import.meta.env.VITE_BACKEND_URL ||
+            (import.meta.env.DEV ? "http://localhost:5000" : "");
+        const url = backendBase
+            ? `${backendBase.replace(/\/$/, "")}/api/auth/google`
+            : "/api/auth/google";
+        window.location.href = url;
     },
 
     register: async (userData) => {
@@ -116,7 +124,7 @@ export const authAPI = {
     },
 };
 
-// Score API endpoints
+
 export const scoreAPI = {
     submitScore: async (scoreData) => {
         try {
@@ -146,7 +154,7 @@ export const scoreAPI = {
     },
 };
 
-// User API endpoints
+
 export const userAPI = {
     getProfile: async () => {
         try {
@@ -196,34 +204,29 @@ export const userAPI = {
     },
 };
 
-// Leaderboard API endpoints
 export const leaderboardAPI = {
-    getLeaderboard: async (params = {}) => {
+    getDaily: async () => {
         try {
-            const response = await api.get("/leaderboard", { params });
+            const response = await api.get("/leaderboard/daily");
+            return response.data;
+        } catch (error) {
+            throw error.response?.data || { error: "Failed to fetch daily leaderboard" };
+        }
+    },
+    getWeekly: async () => {
+        try {
+            const response = await api.get("/leaderboard/weekly");
+            return response.data;
+        } catch (error) {
+            throw error.response?.data || { error: "Failed to fetch weekly leaderboard" };
+        }
+    },
+    getAllTime: async () => {
+        try {
+            const response = await api.get("/leaderboard/all-time");
             return response.data;
         } catch (error) {
             throw error.response?.data || { error: "Failed to fetch leaderboard" };
-        }
-    },
-
-    getTopPlayers: async (limit = 10) => {
-        try {
-            const response = await api.get("/leaderboard/top", {
-                params: { limit },
-            });
-            return response.data;
-        } catch (error) {
-            throw error.response?.data || { error: "Failed to fetch top players" };
-        }
-    },
-
-    getUserRank: async (userId) => {
-        try {
-            const response = await api.get(`/leaderboard/rank/${userId}`);
-            return response.data;
-        } catch (error) {
-            throw error.response?.data || { error: "Failed to fetch user rank" };
         }
     },
 };

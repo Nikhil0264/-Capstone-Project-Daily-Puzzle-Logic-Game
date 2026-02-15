@@ -190,9 +190,12 @@ export const loginUser = createAsyncThunk(
       throw new Error("No token received from backend");
     } catch (error) {
       console.error("Login error:", error);
-      return rejectWithValue(
-        error.message || error.response?.data?.error || "Login failed"
-      );
+      const message =
+        error?.error ||
+        error?.message ||
+        error?.response?.data?.error ||
+        (typeof error === "string" ? error : "Login failed");
+      return rejectWithValue(message);
     }
   }
 );

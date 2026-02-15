@@ -10,6 +10,7 @@ import Dashboard from "./pages/Dashboard";
 import Game from "./pages/Game";
 import Profile from "./pages/Profile";
 import Login from "./pages/Login";
+import AuthCallback from "./pages/AuthCallback";
 import CalendarView from "./components/CalendarView";
 
 export default function App() {
@@ -166,7 +167,8 @@ export default function App() {
       {/* Main Content */}
       <div className="w-full flex-1 flex flex-col items-center pt-6">
         <Routes>
-          <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Login />} />
+          <Route path="/login" element={token ? <Navigate to="/dashboard" /> : <Login />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
 
           <Route path="/dashboard" element={
             isAuthenticated ? <Dashboard /> : <Navigate to="/login" replace />

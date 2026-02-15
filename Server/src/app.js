@@ -36,8 +36,11 @@ app.use(express.urlencoded({ extended: true }));
 // Passport initialization
 app.use(passport.initialize());
 
-// Health check
+// Health check (root and under /api for frontend)
 app.get("/health", (req, res) => {
+  res.json({ status: "OK", timestamp: new Date() });
+});
+app.get("/api/health", (req, res) => {
   res.json({ status: "OK", timestamp: new Date() });
 });
 
