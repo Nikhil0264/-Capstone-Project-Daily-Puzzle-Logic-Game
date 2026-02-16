@@ -2,11 +2,12 @@ import axios from "axios";
 
 // Determine API URL based on environment
 const getApiUrl = () => {
-   
+    // In development, use relative URL (Vite will proxy it)
     if (import.meta.env.DEV) {
         return "/api";
     }
-    return import.meta.env.VITE_API_URL || "/api";
+    // In production, use absolute backend URL
+    return import.meta.env.VITE_API_URL || "https://capstone-project-daily-puzzle-logic-sand.vercel.app/api";
 };
 
 const API_URL = getApiUrl();

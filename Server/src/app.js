@@ -12,9 +12,12 @@ const app = express();
 
 // Middleware
 const allowedOrigins = [
-  process.env.CLIENT_URL || "https://capstone-project-daily-puzzle-logic-sand.vercel.app",
-  "https://capstone-project-daily-puzzle-logic-sand.vercel.app"
+  process.env.CLIENT_URL || "http://localhost:5173",
+  "http://localhost:5173",
+  "http://localhost:3000"
 ];
+
+console.log("✅ CORS Allowed Origins:", allowedOrigins);
 
 app.use(cors({
   origin: function (origin, callback) {
