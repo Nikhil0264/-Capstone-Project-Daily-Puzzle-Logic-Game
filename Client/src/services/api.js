@@ -102,9 +102,15 @@ export const authAPI = {
 
     googleLogin: () => {
         // Use production backend URL for OAuth callback
-        const backendBase =
-            import.meta.env.VITE_BACKEND_URL || "https://capstone-project-daily-puzzle-logic-sand.vercel.app";
+        // CRITICAL: Must match Google Cloud Console registered redirect URI
+        const prodBackendUrl = "https://capstone-project-daily-puzzle-logic-sand.vercel.app";
+        const backendBase = import.meta.env.VITE_BACKEND_URL || prodBackendUrl;
         const url = `${backendBase.replace(/\/$/, "")}/api/auth/google`;
+        
+        console.log("[Google OAuth] Redirecting to:", url);
+        console.log("[Google OAuth] Backend:", backendBase);
+        console.log("[Google OAuth] Environment:", import.meta.env.MODE);
+        
         window.location.href = url;
     },
 
