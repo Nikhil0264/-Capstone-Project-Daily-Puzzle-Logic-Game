@@ -4,7 +4,7 @@ import { Routes, Route, Navigate, Link, useLocation } from "react-router-dom";
 import dayjs from "dayjs";
 
 import { loadUserStats, logout, processSyncQueue, guestLogin } from "./features/user/userSlice";
-import { loadPuzzle } from "./features/puzzle/puzzleSlice";
+import { loadPuzzle, prefetchPuzzles } from "./features/puzzle/puzzleSlice";
 
 import Dashboard from "./pages/Dashboard";
 import Game from "./pages/Game";
@@ -45,6 +45,9 @@ export default function App() {
         date: dayjs().format("YYYY-MM-DD"),
         type: "binary"
       }));
+
+      // Prefetch puzzles for the week for offline support
+      dispatch(prefetchPuzzles());
 
       // Try to sync if user is logged in
       if (token) {

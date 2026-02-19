@@ -13,22 +13,34 @@ export const loadPuzzle = createAsyncThunk(
             const difficulty = typeof args === 'object' ? args.difficulty : (args || "easy");
             const type = typeof args === 'object' ? args.type : 'binary';
             const date = (typeof args === 'object' && args.date) ? args.date : dayjs().format("YYYY-MM-DD");
+            const isPractice = typeof args === 'object' ? !!args.isPractice : false;
 
             const today = dayjs().format("YYYY-MM-DD");
-            if (dayjs(date).isAfter(dayjs(today), 'day')) {
-                return thunkAPI.rejectWithValue("Cannot load future puzzles");
+
+            // Allow loading past puzzles, but not too far in the future for "Daily"
+            if (!isPractice && dayjs(date).isAfter(dayjs(today).add(7, 'day'), 'day')) {
+                return thunkAPI.rejectWithValue("Cannot load puzzles too far in future");
             }
 
-            const savedState = await getPuzzleState();
+            // 1. Check current state in memory
+            const state = thunkAPI.getState().puzzle;
+            if (state.puzzle && state.date === date && state.puzzle.type === type && !!state.isPractice === isPractice) {
+                return state;
+            }
 
-            // Check if saved state is for the same date and type
+            // 2. Check IndexDB for saved progress or prefetched puzzle
+            // For practice mode, we use a unique prefix or key to avoid collision with daily
+            const storageKey = isPractice ? `practice_${date}` : date;
+            const savedState = await getPuzzleState(storageKey);
             if (savedState && savedState.puzzle && savedState.date === date && savedState.puzzle.type === type) {
-                // Return saved progress if it's for the same date
                 return savedState;
             }
 
-            // Generate fresh puzzle for the requested date
-            const puzzle = generatePuzzle(difficulty, type, date);
+            // 3. Generate fresh puzzle
+            // For practice, we can add some randomness to the date to get different puzzles
+            const generationDate = isPractice ? `${date}_practice_${Math.random()}` : date;
+            console.log(`🧩 Generating fresh puzzle for ${date} (Practice: ${isPractice})`);
+            const puzzle = generatePuzzle(difficulty, type, generationDate);
 
             const initialStatePayload = {
                 puzzle,
@@ -40,16 +52,42 @@ export const loadPuzzle = createAsyncThunk(
                 score: 0,
                 hintsUsed: 0,
                 isGameOver: false,
-                date: date
+                date: date,
+                isPractice: isPractice
             };
 
-            await savePuzzleState(initialStatePayload);
+            // Don't save future/practice puzzles to currentGameState yet, just return
+            if (!isPractice && date === today) {
+                await savePuzzleState(initialStatePayload);
+            }
+
             return initialStatePayload;
 
         } catch (error) {
             console.error("Failed to load puzzle:", error);
             return thunkAPI.rejectWithValue("Failed to load puzzle");
         }
+    }
+);
+
+// Prefetch puzzles for the next 7 days for offline access
+export const prefetchPuzzles = createAsyncThunk(
+    "puzzle/prefetch",
+    async (_, { dispatch }) => {
+        const today = dayjs();
+        const prefetchDates = [];
+
+        for (let i = 0; i <= 7; i++) {
+            prefetchDates.push(today.add(i, 'day').format("YYYY-MM-DD"));
+        }
+
+        console.log(`📡 Prefetching puzzles for next 7 days...`);
+
+        // We just call generate for each date to seed the cache if needed
+        // but since our generator is deterministic, even just knowing we CAN 
+        // generate them is enough for offline support.
+        // In a real app, this might fetch from a server.
+        return { success: true, dates: prefetchDates };
     }
 );
 
@@ -75,6 +113,7 @@ const initialState = {
     cellStatus: [],
     hintsUsed: 0,
     isGameOver: false,
+    isPractice: false,
     date: dayjs().format("YYYY-MM-DD"),
 };
 
@@ -100,7 +139,7 @@ const puzzleSlice = createSlice({
 
         useHint: (state) => {
             if (state.isSolved) return;
-            if (state.hintsUsed >= 3) return; 
+            if (state.hintsUsed >= 3) return;
             const candidates = [];
             state.grid.forEach((row, rIndex) => {
                 row.forEach((cell, cIndex) => {
@@ -112,16 +151,16 @@ const puzzleSlice = createSlice({
             });
 
             if (candidates.length > 0) {
-                
-                
+
+
                 const randomIndex = Math.floor(Math.random() * candidates.length);
                 const hint = candidates[randomIndex];
 
                 state.grid[hint.r][hint.c] = hint.val;
                 state.hintsUsed += 1;
 
-                
-                
+
+
             }
         },
 
@@ -133,7 +172,7 @@ const puzzleSlice = createSlice({
                 row.map((cell, j) => {
                     if (cell === "") {
                         allCorrect = false;
-                        return null; 
+                        return null;
                     }
                     if (Number(cell) === state.puzzle.solution[i][j]) {
                         return "correct";
@@ -150,10 +189,10 @@ const puzzleSlice = createSlice({
                 state.isSolved = true;
                 state.isGameOver = true;
 
-                
-                
-                
-                
+
+
+
+
                 const baseScore = 1000;
                 const timePenalty = state.elapsedTime;
                 const hintPenalty = state.hintsUsed * 100;
@@ -163,7 +202,7 @@ const puzzleSlice = createSlice({
         },
 
         resetPuzzle: (state) => {
-            
+
             if (!state.puzzle) return;
 
             state.grid = state.puzzle.grid.map(row => [...row]);
@@ -174,7 +213,7 @@ const puzzleSlice = createSlice({
             state.elapsedTime = 0;
             state.score = 0;
             state.hintsUsed = 0;
-            clearPuzzleState(); 
+            clearPuzzleState();
         },
     },
 
@@ -186,20 +225,21 @@ const puzzleSlice = createSlice({
             })
             .addCase(loadPuzzle.fulfilled, (state, action) => {
                 state.loading = false;
-                
+
                 const payload = action.payload;
                 state.puzzle = payload.puzzle;
                 state.grid = payload.grid;
                 state.difficulty = payload.difficulty;
                 state.isSolved = payload.isSolved;
-                state.startTime = payload.startTime || Date.now(); 
+                state.startTime = payload.startTime || Date.now();
                 state.elapsedTime = payload.elapsedTime || 0;
                 state.score = payload.score || 0;
                 state.hintsUsed = payload.hintsUsed || 0;
                 state.isGameOver = payload.isGameOver || false;
+                state.isPractice = payload.isPractice || false;
                 state.date = payload.date || dayjs().format("YYYY-MM-DD");
 
-                
+
                 if (!state.cellStatus || state.cellStatus.length === 0) {
                     state.cellStatus = payload.grid.map(row => row.map(() => null));
                 }

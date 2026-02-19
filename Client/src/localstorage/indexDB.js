@@ -1,10 +1,40 @@
 import { openDB } from "idb";
+import LZString from "lz-string";
 
 const DB_NAME = "puzzleDB";
 const STORE_NAME = "dailyPuzzle";
 const USER_STATS_STORE = "userStats";
 const SYNC_QUEUE_STORE = "syncQueue";
 const DAILY_SCORES_STORE = "dailyScores";
+
+// Helper to compress objects before storage
+const compress = (data) => {
+  if (!data) return data;
+  try {
+    const stringified = JSON.stringify(data);
+    return LZString.compressToUTF16(stringified);
+  } catch (err) {
+    console.warn("Compression failed:", err);
+    return data;
+  }
+};
+
+// Helper to decompress strings after retrieval
+const decompress = (data) => {
+  if (typeof data !== "string") return data;
+  try {
+    const decompressed = LZString.decompressFromUTF16(data);
+    if (!decompressed) return data;
+    return JSON.parse(decompressed);
+  } catch (err) {
+    // If it's not JSON, it might be old uncompressed data or a plain string
+    try {
+      return JSON.parse(data);
+    } catch (e) {
+      return data;
+    }
+  }
+};
 
 export const initDB = async () => {
   return openDB(DB_NAME, 3, {
@@ -34,12 +64,13 @@ export const initDB = async () => {
 
 export const saveUserStats = async (stats) => {
   const db = await initDB();
-  return db.put(USER_STATS_STORE, stats, "userStats");
+  return db.put(USER_STATS_STORE, compress(stats), "userStats");
 };
 
 export const getUserStats = async () => {
   const db = await initDB();
-  return db.get(USER_STATS_STORE, "userStats");
+  const data = await db.get(USER_STATS_STORE, "userStats");
+  return decompress(data);
 };
 
 export const saveDailyScore = async (date, scoreData) => {
@@ -48,6 +79,7 @@ export const saveDailyScore = async (date, scoreData) => {
   await tx.store.put({
     date,
     ...scoreData,
+    data: compress(scoreData),
     timestamp: Date.now()
   });
   await tx.done;
@@ -55,22 +87,32 @@ export const saveDailyScore = async (date, scoreData) => {
 
 export const getDailyScore = async (date) => {
   const db = await initDB();
-  return db.get(DAILY_SCORES_STORE, date);
+  const record = await db.get(DAILY_SCORES_STORE, date);
+  if (!record) return null;
+  return {
+    ...record,
+    ...decompress(record.data)
+  };
 };
 
 export const getAllDailyScores = async () => {
   const db = await initDB();
-  return db.getAll(DAILY_SCORES_STORE);
+  const records = await db.getAll(DAILY_SCORES_STORE);
+  return records.map(record => ({
+    ...record,
+    ...decompress(record.data)
+  }));
 };
 
 export const savePuzzleState = async (state) => {
   const db = await initDB();
-  return db.put(STORE_NAME, state, "currentGameState");
+  return db.put(STORE_NAME, compress(state), "currentGameState");
 };
 
 export const getPuzzleState = async () => {
   const db = await initDB();
-  return db.get(STORE_NAME, "currentGameState");
+  const data = await db.get(STORE_NAME, "currentGameState");
+  return decompress(data);
 };
 
 export const clearPuzzleState = async () => {

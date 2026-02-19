@@ -18,8 +18,8 @@ const api = axios.create({
     headers: {
         "Content-Type": "application/json",
     },
-    timeout: 10000, 
-    withCredentials: true, 
+    timeout: 10000,
+    withCredentials: true,
 });
 
 
@@ -107,11 +107,11 @@ export const authAPI = {
         const prodBackendUrl = "https://capstone-project-daily-puzzle-logic-sand.vercel.app";
         const backendBase = import.meta.env.VITE_BACKEND_URL || prodBackendUrl;
         const url = `${backendBase.replace(/\/$/, "")}/api/auth/google`;
-        
+
         console.log("[Google OAuth] Redirecting to:", url);
         console.log("[Google OAuth] Backend:", backendBase);
         console.log("[Google OAuth] Environment:", import.meta.env.MODE);
-        
+
         window.location.href = url;
     },
 
@@ -150,6 +150,15 @@ export const scoreAPI = {
             return response.data;
         } catch (error) {
             throw error.response?.data || { error: "Score submission failed" };
+        }
+    },
+
+    syncScores: async (entries) => {
+        try {
+            const response = await api.post("/score/sync", { entries });
+            return response.data;
+        } catch (error) {
+            throw error.response?.data || { error: "Batch sync failed" };
         }
     },
 

@@ -5,9 +5,11 @@ import Heatmap from '../components/Heatmap';
 import dayjs from 'dayjs';
 import CalendarView from '../components/CalendarView';
 import { leaderboardAPI } from '../services/api';
+import { calculateStreak } from '../utils/streak';
+import { useMemo } from 'react';
 
 const Dashboard = () => {
-  const { user, streak, totalPoints, history, isGuest } = useSelector((state) => state.user);
+  const { user, streak, totalPoints, level, achievements, history, isGuest } = useSelector((state) => state.user);
   const [showCalendar, setShowCalendar] = useState(false);
   const [todaySolved, setTodaySolved] = useState(false);
   const [dailyTop, setDailyTop] = useState([]);
@@ -15,6 +17,12 @@ const Dashboard = () => {
   const [leaderboardLoading, setLeaderboardLoading] = useState(true);
 
   const today = dayjs().format("YYYY-MM-DD");
+  const currentStreak = useMemo(() => calculateStreak(history), [history]);
+
+  // XP Progress Calculation
+  const currentXP = totalPoints % 1000; // Simplified progress
+  const nextLevelXP = 1000;
+  const progressPercent = Math.min(100, (currentXP / nextLevelXP) * 100);
 
   useEffect(() => {
     setTodaySolved(history && history[today] && history[today].solved);
@@ -42,23 +50,44 @@ const Dashboard = () => {
 
   return (
     <div className="flex flex-col items-center w-full max-w-5xl px-4 py-8">
-      {/* Welcome Section */}
-      <div className="text-center mb-8 w-full">
-        <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">
-          Welcome back{user ? `, ${user.name}` : ''}! 👋
-        </h1>
-        <p className="text-gray-600 text-sm md:text-base">
-          {todaySolved
-            ? "Great job! You've solved today's puzzle. Come back tomorrow for a new challenge."
-            : "Ready to challenge your brain today?"}
-        </p>
+      {/* Level & Progress Section */}
+      <div className="w-full bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-8 flex flex-col md:flex-row items-center gap-6">
+        <div className="relative group">
+          <div className="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center text-white text-3xl font-black shadow-lg transform group-hover:rotate-12 transition">
+            {level || 1}
+          </div>
+          <div className="absolute -bottom-1 -right-1 bg-yellow-400 text-yellow-900 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+            LEVEL
+          </div>
+        </div>
+
+        <div className="flex-1 w-full">
+          <div className="flex justify-between items-end mb-2">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800">
+                Welcome back{user ? `, ${user.name}` : ''}!
+              </h1>
+              <p className="text-gray-500 text-sm">Rank: Logic Apprentice</p>
+            </div>
+            <div className="text-right">
+              <span className="text-xs font-bold text-gray-400 uppercase">XP Progress</span>
+              <p className="text-sm font-bold text-blue-600">{currentXP} / {nextLevelXP}</p>
+            </div>
+          </div>
+          <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden border border-gray-200">
+            <div
+              className="h-full bg-linear-to-r from-blue-500 to-indigo-600 transition-all duration-1000 ease-out"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 w-full mb-8">
         <div className="bg-linear-to-br from-orange-50 to-orange-100 p-4 md:p-6 rounded-xl shadow-sm border-2 border-orange-200 flex flex-col items-center hover:shadow-md transition">
           <span className="text-3xl md:text-4xl mb-2">🔥</span>
-          <span className="text-2xl md:text-3xl font-bold text-orange-600">{streak}</span>
+          <span className="text-2xl md:text-3xl font-bold text-orange-600">{currentStreak}</span>
           <span className="text-xs md:text-sm text-orange-600 uppercase tracking-wide font-semibold">Streak</span>
         </div>
 
@@ -83,36 +112,79 @@ const Dashboard = () => {
         </button>
       </div>
 
-      {/* Daily Puzzle CTA */}
-      <div className="w-full bg-linear-to-r from-blue-600 to-indigo-700 rounded-2xl shadow-lg p-6 md:p-8 text-white flex flex-col md:flex-row items-center justify-between mb-8 overflow-hidden relative">
-        <div className="z-10 mb-4 md:mb-0">
-          <h2 className="text-2xl md:text-3xl font-bold mb-2">Daily Puzzle</h2>
-          <p className="text-blue-100 mb-4 md:mb-6 max-w-md">
-            {todaySolved
-              ? "You're on a roll! 🌟 Come back tomorrow for a new challenge."
-              : "A new logic challenge awaits! Solve it to keep your streak alive."}
-          </p>
-
-          <Link
-            to="/game"
-            className={`px-6 py-3 rounded-lg font-bold shadow-md transition transform hover:scale-105 inline-block ${todaySolved
-                ? 'bg-white text-blue-600 hover:bg-blue-50'
-                : 'bg-yellow-400 text-yellow-900 hover:bg-yellow-300'
-              }`}
-          >
-            {todaySolved ? "Play Again →" : "Start Puzzle →"}
-          </Link>
+      {/* Main Actions */}
+      <div className="grid md:grid-cols-2 gap-6 w-full mb-8">
+        {/* Daily Puzzle CTA */}
+        <div className="bg-linear-to-r from-blue-600 to-indigo-700 rounded-2xl shadow-lg p-6 text-white overflow-hidden relative group">
+          <div className="z-10 relative">
+            <div className="flex justify-between items-start mb-4">
+              <span className="bg-blue-500/30 text-xs font-bold px-2 py-1 rounded">DAILY CHALLENGE</span>
+              {todaySolved && <span className="text-green-300">✓ Completed</span>}
+            </div>
+            <h2 className="text-2xl font-bold mb-2">Today's Puzzle</h2>
+            <p className="text-blue-100 text-sm mb-6">
+              Keep your {currentStreak}-day streak alive!
+            </p>
+            <Link
+              to="/game"
+              className={`px-6 py-3 rounded-xl font-bold shadow-md transition transform hover:scale-105 inline-block ${todaySolved ? 'bg-white/20 text-white backdrop-blur-sm' : 'bg-yellow-400 text-yellow-900'}`}
+            >
+              {todaySolved ? "Play Again" : "Start Now"}
+            </Link>
+          </div>
         </div>
 
-        {/* Decorative SVG */}
-        <div className="absolute right-0 top-0 opacity-10 md:opacity-20 transform md:translate-x-0 translate-x-10 -translate-y-10">
-          <svg width="200" height="200" viewBox="0 0 200 200" fill="white">
-            <rect x="20" y="20" width="40" height="40" rx="4" />
-            <rect x="80" y="80" width="40" height="40" rx="4" />
-            <rect x="140" y="20" width="40" height="40" rx="4" />
-            <rect x="20" y="140" width="40" height="40" rx="4" />
-          </svg>
+        {/* Practice Mode CTA */}
+        <div className="bg-linear-to-r from-purple-600 to-fuchsia-700 rounded-2xl shadow-lg p-6 text-white overflow-hidden relative group">
+          <div className="z-10 relative">
+            <span className="bg-purple-500/30 text-xs font-bold px-2 py-1 rounded">UNLIMITED PLAY</span>
+            <h2 className="text-2xl font-bold mb-2 mt-4">Practice Mode</h2>
+            <p className="text-purple-100 text-sm mb-6">
+              No pressure, just logic. Earn XP anytime.
+            </p>
+            <Link
+              to="/game" // We'll handle practice toggle in Game.jsx auto-loading or just navigating there
+              className="px-6 py-3 bg-white text-purple-700 rounded-xl font-bold shadow-md transition transform hover:scale-105 inline-block"
+            >
+              Train Now
+            </Link>
+          </div>
         </div>
+      </div>
+
+      {/* Achievements Section */}
+      <div className="w-full mb-8">
+        <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+          🏅 Achievements
+          <span className="text-xs font-normal text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+            {achievements?.length || 0} / 4
+          </span>
+        </h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {(achievements || []).map((ach) => (
+            <div key={ach.id} className="bg-white p-4 rounded-xl border-2 border-yellow-100 flex flex-col items-center text-center shadow-sm">
+              <span className="text-3xl mb-2">{ach.icon}</span>
+              <span className="text-sm font-bold text-gray-800">{ach.name}</span>
+              <span className="text-[10px] text-gray-400 uppercase font-bold mt-1">Unlocked</span>
+            </div>
+          ))}
+          {Array.from({ length: 4 - (achievements?.length || 0) }).map((_, i) => (
+            <div key={i} className="bg-gray-50 p-4 rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center text-center opacity-50">
+              <span className="text-3xl mb-2 grayscale">🔒</span>
+              <span className="text-xs font-bold text-gray-400">Locked</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Decorative SVG */}
+      <div className="absolute right-0 top-0 opacity-10 md:opacity-20 transform md:translate-x-0 translate-x-10 -translate-y-10">
+        <svg width="200" height="200" viewBox="0 0 200 200" fill="white">
+          <rect x="20" y="20" width="40" height="40" rx="4" />
+          <rect x="80" y="80" width="40" height="40" rx="4" />
+          <rect x="140" y="20" width="40" height="40" rx="4" />
+          <rect x="20" y="140" width="40" height="40" rx="4" />
+        </svg>
       </div>
 
       {/* Top 100 performers */}
@@ -193,22 +265,13 @@ const Dashboard = () => {
       {isGuest && (
         <div className="mt-8 w-full bg-linear-to-r from-blue-50 to-indigo-50 border border-blue-200 p-6 rounded-2xl shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="bg-blue-600 text-white p-3 rounded-full text-xl shadow-md">
-              💡
-            </div>
+            <div className="bg-blue-600 text-white p-3 rounded-full text-xl shadow-md">💡</div>
             <div>
               <h3 className="font-bold text-blue-900">Playing as Guest</h3>
-              <p className="text-sm text-blue-800">
-                Your progress is stored locally on this device. Login to sync your streak and points across all your devices.
-              </p>
+              <p className="text-sm text-blue-800">Your progress is stored locally on this device. Login to sync across devices.</p>
             </div>
           </div>
-          <Link
-            to="/login"
-            className="whitespace-nowrap bg-blue-600 text-white px-6 py-2 rounded-lg font-bold shadow-md hover:bg-blue-700 transition transform hover:scale-105"
-          >
-            Login Now
-          </Link>
+          <Link to="/login" className="whitespace-nowrap bg-blue-600 text-white px-6 py-2 rounded-lg font-bold shadow-md hover:bg-blue-700 transition transform hover:scale-105">Login Now</Link>
         </div>
       )}
     </div>

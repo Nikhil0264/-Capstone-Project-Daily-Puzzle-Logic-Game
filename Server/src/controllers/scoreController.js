@@ -4,7 +4,7 @@ import dayjs from "dayjs";
 
 export const submitScore = async (req, res) => {
   try {
-    const { score, timeTaken, puzzleId, date } = req.body;
+    const { score, timeTaken, puzzleId, date, difficulty } = req.body;
     const userId = req.user.id;
 
     // Validation
@@ -91,6 +91,7 @@ export const submitScore = async (req, res) => {
           userId,
           date: submissionDate,
           puzzleId,
+          difficulty: difficulty || "medium",
           score,
           timeTaken
         }
@@ -120,5 +121,99 @@ export const submitScore = async (req, res) => {
   } catch (error) {
     console.error("Score submission error:", error);
     res.status(500).json({ error: "Score submission failed" });
+  }
+};
+
+export const syncDailyScores = async (req, res) => {
+  try {
+    const { entries } = req.body;
+    const userId = req.user.id;
+
+    if (!entries || !Array.isArray(entries)) {
+      return res.status(400).json({ error: "Entries must be an array" });
+    }
+
+    console.log(`[Sync] Batch sync for user ${userId}: ${entries.length} items`);
+
+    const results = [];
+    let syncedCount = 0;
+
+    // Batch upsert entries
+    for (const entry of entries) {
+      const { date, score, timeTaken, puzzleId, difficulty } = entry;
+      const submissionDate = dayjs(date).format("YYYY-MM-DD");
+
+      try {
+        await prisma.dailyScore.upsert({
+          where: {
+            userId_date: {
+              userId,
+              date: submissionDate
+            }
+          },
+          update: {
+            score,
+            timeTaken,
+            difficulty: difficulty || "medium"
+          },
+          create: {
+            userId,
+            date: submissionDate,
+            puzzleId: puzzleId || `daily-${submissionDate}`,
+            score,
+            timeTaken,
+            difficulty: difficulty || "medium"
+          }
+        });
+        syncedCount++;
+      } catch (err) {
+        console.warn(`[Sync] Failed to sync entry for ${submissionDate}:`, err.message);
+      }
+    }
+
+    // Refresh user's total points and streak based on full history
+    const allScores = await prisma.dailyScore.findMany({
+      where: { userId },
+      orderBy: { date: 'asc' }
+    });
+
+    const totalPoints = allScores.reduce((acc, s) => acc + s.score, 0);
+
+    // Calculate current streak
+    let streakCount = 0;
+    if (allScores.length > 0) {
+      const dates = allScores.map(s => s.date);
+      let current = dayjs().format("YYYY-MM-DD");
+      if (!dates.includes(current)) {
+        current = dayjs().subtract(1, 'day').format("YYYY-MM-DD");
+      }
+
+      while (dates.includes(current)) {
+        streakCount++;
+        current = dayjs(current).subtract(1, 'day').format("YYYY-MM-DD");
+      }
+    }
+
+    const latestScore = allScores[allScores.length - 1];
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        totalPoints,
+        streakCount,
+        lastPlayed: latestScore ? new Date(latestScore.date) : null
+      }
+    });
+
+    res.json({
+      success: true,
+      synced: syncedCount,
+      totalPoints,
+      streakCount
+    });
+
+  } catch (error) {
+    console.error("Batch sync error:", error);
+    res.status(500).json({ error: "Batch sync failed" });
   }
 };

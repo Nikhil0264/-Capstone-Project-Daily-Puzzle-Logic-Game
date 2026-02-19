@@ -77,9 +77,11 @@ const PuzzleBoard = () => {
     dispatch(
       completePuzzle({
         score,
-        date: dayjs().format("YYYY-MM-DD"),
+        date: date || dayjs().format("YYYY-MM-DD"),
         timeTaken: elapsedTime,
-        puzzleId: puzzle?.id ?? "unknown"
+        puzzleId: puzzle?.id ?? "unknown",
+        difficulty: puzzle?.difficulty || 'easy',
+        isPractice: !!puzzle?.isPractice
       })
     )
   }, [isSolved, score, elapsedTime, puzzle?.id, dispatch])

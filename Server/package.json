@@ -7,7 +7,10 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "build": "prisma generate"
+    "build": "prisma generate",
+    "local:db": "docker-compose up -d",
+    "local:down": "docker-compose down -v",
+    "local:dev": "npm run local:db && npm run dev"
   },
   "keywords": [],
   "author": "",

@@ -1,69 +1,161 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import dayjs from 'dayjs';
 import { useSelector } from 'react-redux';
+import { motion } from 'framer-motion';
+import HeatmapTooltip from './HeatmapTooltip';
+import { calculateStreak, getIntensity } from '../utils/streak';
+
+const HeatmapCell = React.memo(({ day, entry, onHover }) => {
+    const intensity = getIntensity(entry);
+
+    const intensityColors = {
+        0: "bg-gray-100 dark:bg-gray-800",
+        1: "bg-green-200 dark:bg-green-900/40",
+        2: "bg-green-400 dark:bg-green-700",
+        3: "bg-green-600 dark:bg-green-500",
+        4: "bg-green-800 dark:bg-green-300"
+    };
+
+    return (
+        <motion.div
+            whileHover={{ scale: 1.2, zIndex: 10 }}
+            onMouseEnter={(e) => onHover(e, day, entry)}
+            onMouseLeave={() => onHover(null)}
+            className={`w-3 h-3 md:w-3.5 md:h-3.5 rounded-[2px] cursor-pointer transition-colors duration-300 ${intensityColors[intensity]}`}
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{
+                duration: 0.2,
+                delay: (day.day() * 0.01) + (day.week() * 0.001)
+            }}
+        />
+    );
+});
+
+HeatmapCell.displayName = 'HeatmapCell';
 
 const Heatmap = () => {
     const { history } = useSelector((state) => state.user);
-    const today = dayjs();
-    const startDate = today.subtract(365, 'day').startOf('week');
-    const weeks = [];
-    let current = startDate;
-    while (current.isBefore(today) || current.isSame(today, 'day')) {
-        const week = [];
-        for (let i = 0; i < 7; i++) {
-            week.push(current);
-            current = current.add(1, 'day');
-        }
-        weeks.push(week);
-    }
-    const getColor = (date) => {
-        const dateStr = date.format("YYYY-MM-DD");
-        if (date.isAfter(today, 'day')) return "bg-transparent";
-        const entry = history[dateStr];
-        if (!entry) return "bg-gray-100";
-        const s = entry.score;
-        if (s >= 1000) return "bg-green-800";
-        if (s >= 800) return "bg-green-600";
-        if (s >= 500) return "bg-green-400";
-        return "bg-green-200";
-    };
-    const getIntensityLabel = (date) => {
-        const dateStr = date.format("YYYY-MM-DD");
-        const entry = history[dateStr];
-        if (!entry) return "No activity";
-        return `${entry.score} pts`;
-    };
-    return (
-        <div className="mt-8 p-6 bg-white rounded-xl shadow-sm w-full max-w-5xl mx-4 border border-gray-100">
-            <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                📊 Daily Activity <span className="text-gray-400 text-sm font-normal">(Last 365 Days)</span>
-            </h2>
+    const [tooltip, setTooltip] = useState({ active: false, day: null, entry: null, x: 0, y: 0 });
 
-            <div className="overflow-x-auto pb-2">
-                <div className="flex gap-1 min-w-max">
+    const today = dayjs();
+    const startDate = today.subtract(1, 'year').startOf('week');
+
+    const weeks = useMemo(() => {
+        const weeksArr = [];
+        let current = startDate;
+
+        // Generate 12-month grid
+        for (let w = 0; w < 53; w++) {
+            const week = [];
+            for (let d = 0; d < 7; d++) {
+                week.push(current);
+                current = current.add(1, 'day');
+            }
+            weeksArr.push(week);
+        }
+        return weeksArr;
+    }, []);
+
+    const handleHover = (e, day, entry) => {
+        if (!e) {
+            setTooltip(prev => ({ ...prev, active: false }));
+            return;
+        }
+        setTooltip({
+            active: true,
+            day,
+            entry,
+            x: e.clientX,
+            y: e.clientY
+        });
+    };
+
+    const currentStreak = useMemo(() => calculateStreak(history), [history]);
+
+    return (
+        <div className="mt-8 p-6 bg-white dark:bg-gray-900 rounded-2xl shadow-sm w-full max-w-5xl border border-gray-100 dark:border-gray-800 relative overflow-hidden group">
+            {/* Background Decoration */}
+            <div className="absolute -right-4 -top-4 w-24 h-24 bg-green-500/5 rounded-full blur-3xl group-hover:bg-green-500/10 transition-colors" />
+
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                <div>
+                    <h2 className="text-xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                        📊 Progress Heatmap
+                    </h2>
+                    <p className="text-gray-400 text-sm">Visualize your daily logic challenges over the past year</p>
+                </div>
+
+                <div className="flex items-center gap-4 bg-gray-50 dark:bg-gray-800/50 px-4 py-2 rounded-xl border border-gray-100 dark:border-gray-700">
+                    <div className="flex flex-col items-center">
+                        <span className="text-xs font-bold text-gray-400 uppercase tracking-tighter">Current Streak</span>
+                        <span className="text-lg font-black text-orange-500 flex items-center gap-1">
+                            {currentStreak} <span className="text-sm">🔥</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <div className="overflow-x-auto pb-4 scrollbar-hide">
+                <div className="flex gap-1.5 min-w-max">
+                    {/* Weekday Labels */}
+                    <div className="flex flex-col gap-1.5 pr-2 pt-5">
+                        {['Mon', 'Wed', 'Fri'].map(day => (
+                            <span key={day} className="text-[10px] text-gray-400 h-3.5 flex items-center uppercase font-bold">
+                                {day}
+                            </span>
+                        ))}
+                    </div>
+
                     {weeks.map((week, wIndex) => (
-                        <div key={wIndex} className="flex flex-col gap-1">
-                            {week.map((day, dIndex) => (
-                                <div
+                        <div key={wIndex} className="flex flex-col gap-1.5">
+                            {/* Month Label */}
+                            <div className="h-4 text-[10px] text-gray-400 font-bold uppercase truncate">
+                                {wIndex % 4 === 0 && week[0].format('MMM')}
+                            </div>
+
+                            {week.map((day) => (
+                                <HeatmapCell
                                     key={day.format("YYYY-MM-DD")}
-                                    className={`w-3 h-3 rounded-sm transition-colors ${getColor(day)}`}
-                                    title={`${day.format("MMM D, YYYY")}: ${getIntensityLabel(day)}`}
+                                    day={day}
+                                    entry={history[day.format("YYYY-MM-DD")]}
+                                    onHover={handleHover}
                                 />
                             ))}
                         </div>
                     ))}
                 </div>
             </div>
-            <div className="mt-4 text-xs text-gray-400 flex gap-2 items-center justify-end">
-                <span>Less</span>
-                <div className="w-3 h-3 bg-gray-100 rounded-sm"></div>
-                <div className="w-3 h-3 bg-green-200 rounded-sm"></div>
-                <div className="w-3 h-3 bg-green-400 rounded-sm"></div>
-                <div className="w-3 h-3 bg-green-600 rounded-sm"></div>
-                <div className="w-3 h-3 bg-green-800 rounded-sm"></div>
-                <span>More</span>
+
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-4 border-t border-gray-50 dark:border-gray-800 pt-4">
+                <div className="text-[10px] text-gray-400 font-medium italic">
+                    Tip: Hover over a cell to see specific stats!
+                </div>
+
+                <div className="flex gap-2 items-center">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase">Intensity</span>
+                    <div className="flex gap-1">
+                        {[0, 1, 2, 3, 4].map(i => (
+                            <div
+                                key={i}
+                                className={`w-3 h-3 rounded-[2px] ${i === 0 ? "bg-gray-100 dark:bg-gray-800" :
+                                    i === 1 ? "bg-green-200" :
+                                        i === 2 ? "bg-green-400" :
+                                            i === 3 ? "bg-green-600" : "bg-green-800"
+                                    }`}
+                            />
+                        ))}
+                    </div>
+                    <div className="flex gap-4 ml-4 text-[10px] font-bold text-gray-400 uppercase">
+                        <span>Less</span>
+                        <span>More</span>
+                    </div>
+                </div>
             </div>
+
+            <HeatmapTooltip {...tooltip} />
         </div>
     );
 };
+
 export default Heatmap;

@@ -36,6 +36,7 @@ model DailyScore {
   userId     String
   date       String
   puzzleId   String
+  difficulty String   @default("medium")
   score      Int
   timeTaken  Int
   createdAt  DateTime @default(now())
