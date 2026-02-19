@@ -19,30 +19,108 @@ const Login = () => {
     }
   }, [urlError]);
 
-  // Initialize TrueCaller SDK
+  // Dynamic TrueCaller SDK loader with timeout and graceful fallback
+  const [sdkLoaded, setSdkLoaded] = React.useState(false);
+  const [sdkUsable, setSdkUsable] = React.useState(false);
+  const [sdkLoading, setSdkLoading] = React.useState(false);
+
   useEffect(() => {
-    if (window.truecaller) {
-      window.truecaller.init({
-        appKey: import.meta.env.VITE_TRUECALLER_APP_KEY,
-        // Frontend URL for the SDK callback
-        appLink: import.meta.env.VITE_TRUECALLER_DOMAIN || 'https://capstone-project-daily-puzzle-logic-sand.vercel.app'
+    let cancelled = false;
+
+    async function loadSDK({ timeout = 6000 } = {}) {
+      if (window.truecaller) {
+        try {
+          window.truecaller.init({
+            appKey: import.meta.env.VITE_TRUECALLER_APP_KEY,
+            appLink: import.meta.env.VITE_TRUECALLER_DOMAIN || 'https://capstone-project-daily-puzzle-logic-sand.vercel.app'
+          });
+          console.log('[TrueCaller] SDK already present; initialized');
+          setSdkLoaded(true);
+          setSdkUsable(Boolean(window.truecaller.isUsable));
+          return;
+        } catch (e) {
+          console.warn('[TrueCaller] Init failed for existing SDK', e);
+        }
+      }
+
+      setSdkLoading(true);
+
+      // If script already attempted via index.html, wait for the global flag
+      if (window.truecallerSDKLoaded === true && window.truecaller) {
+        try {
+          window.truecaller.init({
+            appKey: import.meta.env.VITE_TRUECALLER_APP_KEY,
+            appLink: import.meta.env.VITE_TRUECALLER_DOMAIN || 'https://capstone-project-daily-puzzle-logic-sand.vercel.app'
+          });
+          setSdkLoaded(true);
+          setSdkUsable(Boolean(window.truecaller.isUsable));
+          setSdkLoading(false);
+          return;
+        } catch (e) {
+          console.warn('[TrueCaller] Init failed after SDKLoaded flag', e);
+        }
+      }
+
+      // Dynamically inject script if not present
+      const src = 'https://truecaller.com/javascript/v1/truecaller.js';
+      let script = document.querySelector(`script[src="${src}"]`);
+      if (!script) {
+        script = document.createElement('script');
+        script.async = true;
+        script.src = src;
+        document.head.appendChild(script);
+      }
+
+      await new Promise((resolve) => {
+        const to = setTimeout(() => resolve(false), timeout);
+        script.onload = () => {
+          clearTimeout(to);
+          resolve(true);
+        };
+        script.onerror = () => {
+          clearTimeout(to);
+          resolve(false);
+        };
+      }).then((ok) => {
+        if (cancelled) return;
+        setSdkLoading(false);
+        if (ok && window.truecaller) {
+          try {
+            window.truecaller.init({
+              appKey: import.meta.env.VITE_TRUECALLER_APP_KEY,
+              appLink: import.meta.env.VITE_TRUECALLER_DOMAIN || 'https://capstone-project-daily-puzzle-logic-sand.vercel.app'
+            });
+            console.log('[TrueCaller] SDK loaded and initialized');
+            setSdkLoaded(true);
+            setSdkUsable(Boolean(window.truecaller.isUsable));
+          } catch (e) {
+            console.warn('[TrueCaller] Initialization failed after load', e);
+            setSdkLoaded(false);
+            setSdkUsable(false);
+          }
+        } else {
+          console.warn('[TrueCaller] SDK failed to load within timeout');
+          setSdkLoaded(false);
+          setSdkUsable(false);
+        }
       });
-      console.log('[TrueCaller] SDK initialized with appKey:', import.meta.env.VITE_TRUECALLER_APP_KEY ? 'present' : 'missing');
-    } else {
-      console.warn('[TrueCaller] TrueCaller SDK not loaded');
     }
+
+    loadSDK();
+
+    return () => { cancelled = true; };
   }, []);
 
   const handleTruecallerLogin = () => {
     console.log('[TrueCaller] Login button clicked');
 
-    if (!window.truecaller) {
+    if (!sdkLoaded) {
       console.error('[TrueCaller] SDK not loaded');
-      alert('TrueCaller SDK not loaded. Please refresh the page.');
+      alert('TrueCaller SDK not available. Please refresh the page or use Google login.');
       return;
     }
 
-    if (!window.truecaller.isUsable) {
+    if (!sdkUsable) {
       console.warn('[TrueCaller] Not usable on this device/browser');
       alert('TrueCaller is not available on this device. Please use Google login or email instead.');
       return;

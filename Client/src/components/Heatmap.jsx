@@ -26,7 +26,9 @@ const HeatmapCell = React.memo(({ day, entry, onHover }) => {
             animate={{ opacity: 1, scale: 1 }}
             transition={{
                 duration: 0.2,
-                delay: (day.day() * 0.01) + (day.week() * 0.001)
+                // `day.week()` requires a dayjs plugin in production builds and may be undefined.
+                // Use `day.date()` (day of month) for a small stable offset instead.
+                delay: (day.day() * 0.01) + (day.date() * 0.0001)
             }}
         />
     );

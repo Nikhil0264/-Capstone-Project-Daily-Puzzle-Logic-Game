@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
 import Heatmap from '../components/Heatmap';
@@ -6,7 +6,6 @@ import dayjs from 'dayjs';
 import CalendarView from '../components/CalendarView';
 import { leaderboardAPI } from '../services/api';
 import { calculateStreak } from '../utils/streak';
-import { useMemo } from 'react';
 
 const Dashboard = () => {
   const { user, streak, totalPoints, level, achievements, history, isGuest } = useSelector((state) => state.user);
@@ -19,8 +18,10 @@ const Dashboard = () => {
   const today = dayjs().format("YYYY-MM-DD");
   const currentStreak = useMemo(() => calculateStreak(history), [history]);
 
-  // XP Progress Calculation
-  const currentXP = totalPoints % 1000; // Simplified progress
+  // XP Progress Calculation (safe numeric handling)
+  const numericTotal = Number(totalPoints) || 0;
+  const levelVal = Number(level) || 1;
+  const currentXP = numericTotal % 1000; // Simplified progress
   const nextLevelXP = 1000;
   const progressPercent = Math.min(100, (currentXP / nextLevelXP) * 100);
 
@@ -54,7 +55,7 @@ const Dashboard = () => {
       <div className="w-full bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-8 flex flex-col md:flex-row items-center gap-6">
         <div className="relative group">
           <div className="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center text-white text-3xl font-black shadow-lg transform group-hover:rotate-12 transition">
-            {level || 1}
+            {levelVal}
           </div>
           <div className="absolute -bottom-1 -right-1 bg-yellow-400 text-yellow-900 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
             LEVEL

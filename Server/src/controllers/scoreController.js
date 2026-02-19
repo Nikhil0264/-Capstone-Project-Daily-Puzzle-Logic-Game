@@ -59,24 +59,22 @@ export const submitScore = async (req, res) => {
 
     // Calculate streak
     const streakResult = calculateStreak(user.lastPlayed, submissionDate);
-    let newStreak = user.streakCount || 0;
+    const prevStreak = Number(user.streakCount) || 0;
+    let newStreak = prevStreak;
 
     if (streakResult === "increment") {
-      newStreak = user.streakCount + 1;
+      newStreak = prevStreak + 1;
     } else if (streakResult === "reset") {
       newStreak = 1;
-    } else if (streakResult === null && user.lastPlayed === submissionDate) {
-      // Already played today, don't change streak
-      newStreak = user.streakCount || 0;
-    } else {
-      newStreak = 1;
+    } else if (streakResult === "same") {
+      newStreak = prevStreak;
     }
 
     // Only update last played if this is the latest submission
     const isLatest = !user.lastPlayed || dayjs(submissionDate).isSameOrAfter(dayjs(user.lastPlayed), 'day');
 
     const updateData = {
-      totalPoints: user.totalPoints + score
+      totalPoints: (Number(user.totalPoints) || 0) + Number(score)
     };
 
     if (isLatest) {
@@ -84,7 +82,12 @@ export const submitScore = async (req, res) => {
       updateData.lastPlayed = new Date(submissionDate);
     }
 
-    // Use transaction to ensure consistency
+    // Compute new average solve time properly using prior counts
+    const prevSolved = Number(user.stats?.puzzlesSolved) || 0;
+    const prevAvg = Number(user.stats?.avgSolveTime) || 0;
+    const newAvg = (prevAvg * prevSolved + Number(timeTaken)) / (prevSolved + 1 || 1);
+
+    // Use transaction to ensure consistency. Upsert userStats to handle missing row
     await prisma.$transaction([
       prisma.dailyScore.create({
         data: {
@@ -92,8 +95,8 @@ export const submitScore = async (req, res) => {
           date: submissionDate,
           puzzleId,
           difficulty: difficulty || "medium",
-          score,
-          timeTaken
+          score: Number(score),
+          timeTaken: Number(timeTaken)
         }
       }),
 
@@ -102,12 +105,16 @@ export const submitScore = async (req, res) => {
         data: updateData
       }),
 
-      prisma.userStats.update({
+      prisma.userStats.upsert({
         where: { userId },
-        data: {
+        update: {
           puzzlesSolved: { increment: 1 },
-          avgSolveTime:
-            ((user.stats?.avgSolveTime || 0) + timeTaken) / 2
+          avgSolveTime: newAvg
+        },
+        create: {
+          userId,
+          puzzlesSolved: 1,
+          avgSolveTime: Number(timeTaken)
         }
       })
     ]);
